@@ -28,11 +28,14 @@
    andreas@angelcode.com
 */
 
+
 //
 // as_scriptnode.cpp
 //
 // A node in the script tree built by the parser for compilation
 //
+
+
 
 #include "as_scriptnode.h"
 #include "as_scriptengine.h"
@@ -160,8 +163,11 @@ void asCScriptNode::DisconnectParent()
 			parent->lastChild = prev;
 	}
 
-    if( next ) next->prev = prev;
-    if( prev ) prev->next = next;
+	if( next )
+		next->prev = prev;
+
+	if( prev )
+		prev->next = next;
 
 	parent = 0;
 	next = 0;

@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2020 Andreas Jonsson
+   Copyright (c) 2003-2024 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -32,6 +32,7 @@
 //
 // as_typeinfo.cpp
 //
+
 
 #include "as_config.h"
 #include "as_typeinfo.h"
@@ -99,6 +100,7 @@ int asCTypeInfo::Release() const
 			asDELETE(const_cast<asCTypeInfo*>(this), asCTypeInfo);
 		}
 	}
+
 	return r;
 }
 
@@ -122,6 +124,7 @@ int asCTypeInfo::ReleaseInternal()
 			asDELETE(const_cast<asCTypeInfo*>(this), asCTypeInfo);
 		}
 	}
+
 	return r;
 }
 
@@ -133,6 +136,10 @@ asIScriptModule *asCTypeInfo::GetModule() const
 
 void *asCTypeInfo::SetUserData(void *data, asPWORD type)
 {
+	// As a thread might add a new new user data at the same time as another
+	// it is necessary to protect both read and write access to the userData member
+	ACQUIREEXCLUSIVE(engine->engineRWLock);
+
 	// It is not intended to store a lot of different types of userdata,
 	// so a more complex structure like a associative map would just have
 	// more overhead than a simple array.
@@ -142,36 +149,67 @@ void *asCTypeInfo::SetUserData(void *data, asPWORD type)
 		{
 			void *oldData = reinterpret_cast<void*>(userData[n + 1]);
 			userData[n + 1] = reinterpret_cast<asPWORD>(data);
+
+			RELEASEEXCLUSIVE(engine->engineRWLock);
+
 			return oldData;
 		}
 	}
+
 	userData.PushLast(type);
 	userData.PushLast(reinterpret_cast<asPWORD>(data));
+
+	RELEASEEXCLUSIVE(engine->engineRWLock);
+
 	return 0;
 }
 
 void *asCTypeInfo::GetUserData(asPWORD type) const
 {
+	// There may be multiple threads reading, but when
+	// setting the user data nobody must be reading.
+	ACQUIRESHARED(engine->engineRWLock);
+
 	for (asUINT n = 0; n < userData.GetLength(); n += 2)
-        if (userData[n] == type) return reinterpret_cast<void*>(userData[n + 1]);
+	{
+		if (userData[n] == type)
+		{
+			RELEASESHARED(engine->engineRWLock);
+			return reinterpret_cast<void*>(userData[n + 1]);
+		}
+	}
+
+	RELEASESHARED(engine->engineRWLock);
+
 	return 0;
 }
 
 // interface
-const char *asCTypeInfo::GetName() const { return name.AddressOf(); }
+const char *asCTypeInfo::GetName() const
+{
+	return name.AddressOf();
+}
 
 // interface
 const char *asCTypeInfo::GetNamespace() const
 {
-    if( nameSpace ) return nameSpace->name.AddressOf();
+	if( nameSpace )
+		return nameSpace->name.AddressOf();
+
 	return 0;
 }
 
 // interface
-asDWORD asCTypeInfo::GetFlags() const { return flags; }
+asQWORD asCTypeInfo::GetFlags() const
+{
+	return flags;
+}
 
 // interface
-asUINT asCTypeInfo::GetSize() const { return size; }
+asUINT asCTypeInfo::GetSize() const
+{
+	return size;
+}
 
 // interface
 int asCTypeInfo::GetTypeId() const
@@ -186,20 +224,31 @@ int asCTypeInfo::GetTypeId() const
 		// The engine will define the typeId for this object type
 		engine->GetTypeIdFromDataType(asCDataType::CreateType(ot, false));
 	}
+
 	return typeId;
 }
 
 // interface
-asIScriptEngine *asCTypeInfo::GetEngine() const { return engine; }
+asIScriptEngine *asCTypeInfo::GetEngine() const
+{
+	return engine;
+}
 
 // interface
 const char *asCTypeInfo::GetConfigGroup() const
 {
-    return 0;
+	asCConfigGroup *group = engine->FindConfigGroupForTypeInfo(this);
+	if (group == 0)
+		return 0;
+
+	return group->groupName.AddressOf();
 }
 
 // interface
-asDWORD asCTypeInfo::GetAccessMask() const { return accessMask; }
+asDWORD asCTypeInfo::GetAccessMask() const
+{
+	return accessMask;
+}
 
 // interface
 int asCTypeInfo::GetProperty(asUINT index, const char **out_name, int *out_typeId, bool *out_isPrivate, bool *out_isProtected, int *out_offset, bool *out_isReference, asDWORD *out_accessMask, int *out_compositeOffset, bool *out_isCompositeIndirect) const
@@ -233,9 +282,11 @@ asCObjectType *CastToObjectType(asCTypeInfo *ti)
 // internal
 asCEnumType *CastToEnumType(asCTypeInfo *ti)
 {
-    if (ti == 0) return 0; // Allow call on null pointer
+	// Allow call on null pointer
+	if (ti == 0) return 0;
 
-    if (ti->flags & (asOBJ_ENUM)) return reinterpret_cast<asCEnumType*>(ti);
+	if (ti->flags & (asOBJ_ENUM))
+		return reinterpret_cast<asCEnumType*>(ti);
 
 	return 0;
 }
@@ -243,9 +294,11 @@ asCEnumType *CastToEnumType(asCTypeInfo *ti)
 // internal
 asCTypedefType *CastToTypedefType(asCTypeInfo *ti)
 {
-    if (ti == 0) return 0; // Allow call on null pointer
+	// Allow call on null pointer
+	if (ti == 0) return 0;
 
-    if (ti->flags & (asOBJ_TYPEDEF)) return reinterpret_cast<asCTypedefType*>(ti);
+	if (ti->flags & (asOBJ_TYPEDEF))
+		return reinterpret_cast<asCTypedefType*>(ti);
 
 	return 0;
 }
@@ -253,9 +306,11 @@ asCTypedefType *CastToTypedefType(asCTypeInfo *ti)
 // internal
 asCFuncdefType *CastToFuncdefType(asCTypeInfo *ti)
 {
-    if (ti == 0) return 0; // Allow call on null pointer
+	// Allow call on null pointer
+	if (ti == 0) return 0;
 
-    if (ti->flags & (asOBJ_FUNCDEF)) return reinterpret_cast<asCFuncdefType*>(ti);
+	if (ti->flags & (asOBJ_FUNCDEF))
+		return reinterpret_cast<asCFuncdefType*>(ti);
 
 	return 0;
 }
@@ -282,7 +337,8 @@ bool asCTypeInfo::IsShared() const
 	// Types that can be declared by scripts need to have the explicit flag asOBJ_SHARED
 	if (flags & (asOBJ_SCRIPT_OBJECT | asOBJ_ENUM)) return flags & asOBJ_SHARED ? true : false;
 
-    return true; // Otherwise we assume the type to be shared
+	// Otherwise we assume the type to be shared
+	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -291,8 +347,10 @@ asCEnumType::~asCEnumType()
 {
 	asUINT n;
 	for (n = 0; n < enumValues.GetLength(); n++)
-        if (enumValues[n]) asDELETE(enumValues[n], asSEnumValue);
-
+	{
+		if (enumValues[n])
+			asDELETE(enumValues[n], asSEnumValue);
+	}
 	enumValues.SetLength(0);
 }
 
@@ -305,9 +363,14 @@ asUINT asCEnumType::GetEnumValueCount() const
 // interface
 const char *asCEnumType::GetEnumValueByIndex(asUINT index, int *outValue) const
 {
-    if (outValue) *outValue = 0;
-    if (index >= enumValues.GetLength()) return 0;
-    if (outValue) *outValue = enumValues[index]->value;
+	if (outValue)
+		*outValue = 0;
+
+	if (index >= enumValues.GetLength())
+		return 0;
+
+	if (outValue)
+		*outValue = enumValues[index]->value;
 
 	return enumValues[index]->name.AddressOf();
 }
@@ -332,7 +395,8 @@ void asCTypedefType::DestroyInternal()
 	CleanUserData();
 
 	// Remove the type from the engine
-    if (typeId != -1) engine->RemoveFromTypeIdMap(this);
+	if (typeId != -1)
+		engine->RemoveFromTypeIdMap(this);
 
 	// Clear the engine pointer to mark the object type as invalid
 	engine = 0;
@@ -353,7 +417,7 @@ asCFuncdefType::asCFuncdefType(asCScriptEngine *en, asCScriptFunction *func) : a
 
 	// A function pointer is special kind of reference type
 	// It must be possible to garbage collect, as funcdefs can form circular references if used as delegates
-    flags       = asOBJ_REF | asOBJ_GC | asOBJ_FUNCDEF | (func->IsShared() ? asOBJ_SHARED : asOBJ_NONE);
+	flags       = asOBJ_REF | asOBJ_GC | asOBJ_FUNCDEF | (func->IsShared() ? asOBJ_SHARED : 0);
 	name        = func->name;
 	nameSpace   = func->nameSpace;
 	module      = func->module;
@@ -374,7 +438,8 @@ void asCFuncdefType::DestroyInternal()
 	if (engine == 0) return;
 
 	// Release the funcdef
-    if( funcdef ) funcdef->ReleaseInternal();
+	if( funcdef )
+		funcdef->ReleaseInternal();
 	funcdef = 0;
 
 	// Detach from parent class
@@ -383,10 +448,12 @@ void asCFuncdefType::DestroyInternal()
 		parentClass->childFuncDefs.RemoveValue(this);
 		parentClass = 0;
 	}
+
 	CleanUserData();
 
 	// Remove the type from the engine
-    if (typeId != -1) engine->RemoveFromTypeIdMap(this);
+	if (typeId != -1)
+		engine->RemoveFromTypeIdMap(this);
 
 	// Clear the engine pointer to mark the object type as invalid
 	engine = 0;
@@ -405,3 +472,5 @@ asITypeInfo *asCFuncdefType::GetParentType() const
 }
 
 END_AS_NAMESPACE
+
+

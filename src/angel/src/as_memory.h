@@ -125,6 +125,7 @@ public:
 #endif
 
 protected:
+	DECLARECRITICALSECTION(cs)
 	asCArray<void *> scriptNodePool;
 	asCArray<void *> byteInstructionPool;
 };

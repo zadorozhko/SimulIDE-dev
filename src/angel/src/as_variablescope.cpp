@@ -35,6 +35,7 @@
 // A manager class for variable declarations
 //
 
+
 #include "as_config.h"
 
 #ifndef AS_NO_COMPILER
@@ -94,7 +95,8 @@ int asCVariableScope::DeclareVariable(const char *name, const asCDataType &type,
 	var->onHeap         = onHeap;
 
 	// Parameters are initialized
-    if( stackOffset <= 0 ) var->isInitialized = true;
+	if( stackOffset <= 0 )
+		var->isInitialized = true;
 
 	variables.PushLast(var);
 
@@ -111,7 +113,8 @@ sVariable *asCVariableScope::GetVariable(const char *name)
 			return variables[n];
 	}
 
-    if( parent ) return parent->GetVariable(name);
+	if( parent )
+		return parent->GetVariable(name);
 
 	return 0;
 }
@@ -125,10 +128,15 @@ sVariable *asCVariableScope::GetVariableByOffset(int offset)
 		if( variables[n]->stackOffset == offset )
 			return variables[n];
 	}
-    if( parent ) return parent->GetVariableByOffset(offset);
+
+	if( parent )
+		return parent->GetVariableByOffset(offset);
+
 	return 0;
 }
 
 END_AS_NAMESPACE
 
 #endif // AS_NO_COMPILER
+
+

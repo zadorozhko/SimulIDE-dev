@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2015 Andreas Jonsson
+   Copyright (c) 2003-2023 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -83,6 +83,7 @@ asCTokenizer::asCTokenizer()
 			tok[index] = tok[index - 1];
 			--index;
 		}
+
 		tok[insert] = &current;
 	}
 }
@@ -197,6 +198,7 @@ bool asCTokenizer::IsWhiteSpace(const char *source, size_t sourceLength, size_t 
 		tokenLength = n;
 		return true;
 	}
+
 	return false;
 }
 
@@ -205,10 +207,13 @@ bool asCTokenizer::IsComment(const char *source, size_t sourceLength, size_t &to
 	if( sourceLength < 2 )
 		return false;
 
-    if( source[0] != '/' ) return false;
+	if( source[0] != '/' )
+		return false;
 
-    if( source[1] == '/' ) // One-line comment
-    {
+	if( source[1] == '/' )
+	{
+		// One-line comment
+
 		// Find the length
 		size_t n;
 		for( n = 2; n < sourceLength; n++ )
@@ -216,14 +221,17 @@ bool asCTokenizer::IsComment(const char *source, size_t sourceLength, size_t &to
 			if( source[n] == '\n' )
 				break;
 		}
+
 		tokenType   = ttOnelineComment;
 		tokenLength = n < sourceLength ? n+1 : n;
 
 		return true;
 	}
 
-    if( source[1] == '*' ) // Multi-line comment
-    {
+	if( source[1] == '*' )
+	{
+		// Multi-line comment
+
 		// Find the length
 		size_t n;
 		for( n = 2; n < sourceLength-1; )
@@ -231,11 +239,13 @@ bool asCTokenizer::IsComment(const char *source, size_t sourceLength, size_t &to
 			if( source[n++] == '*' && source[n] == '/' )
 				break;
 		}
+
 		tokenType   = ttMultilineComment;
 		tokenLength = n+1;
 
 		return true;
 	}
+
 	return false;
 }
 
@@ -336,12 +346,16 @@ bool asCTokenizer::IsConstant(const char *source, size_t sourceLength, size_t &t
 			size_t n;
 			for( n = 3; n < sourceLength-2; n++ )
 			{
-				if( source[n] == '"' && source[n+1] == '"' && source[n+2] == '"' )
-					break;
+				if (source[n] == '"' && source[n + 1] == '"' && source[n + 2] == '"')
+				{
+					tokenType = ttHeredocStringConstant;
+					tokenLength = n + 3;
+					return true;
+				}
 			}
 
-			tokenType   = ttHeredocStringConstant;
-			tokenLength = n+3;
+			tokenType   = ttNonTerminatedStringConstant;
+			tokenLength = n+2;
 		}
 		else
 		{
@@ -362,6 +376,7 @@ bool asCTokenizer::IsConstant(const char *source, size_t sourceLength, size_t &t
 					continue;
 				}
 #endif
+
 				if( source[n] == '\n' ) 
 					tokenType = ttMultilineStringConstant;
 				if( source[n] == quote && evenSlashes )
@@ -375,8 +390,10 @@ bool asCTokenizer::IsConstant(const char *source, size_t sourceLength, size_t &t
 			tokenType   = ttNonTerminatedStringConstant;
 			tokenLength = n;
 		}
+
 		return true;
 	}
+
 	return false;
 }
 
@@ -407,6 +424,7 @@ bool asCTokenizer::IsIdentifier(const char *source, size_t sourceLength, size_t 
 			else
 				break;
 		}
+
 		// Make sure the identifier isn't a reserved keyword
 		if( IsKeyWord(source, tokenLength, tokenLength, tokenType) )
 			return false;
@@ -422,7 +440,8 @@ bool asCTokenizer::IsKeyWord(const char *source, size_t sourceLength, size_t &to
 	unsigned char start = source[0];
 	const sTokenWord **ptr = keywordTable[start];
 
-    if( !ptr ) return false;
+	if( !ptr )
+		return false;
 
 	for( ; *ptr; ++ptr )
 	{
@@ -446,12 +465,15 @@ bool asCTokenizer::IsKeyWord(const char *source, size_t sourceLength, size_t &to
 				// the start of the source matches the token
 				continue;
 			}
+
 			tokenType = (*ptr)->tokenType;
 			tokenLength = wlen;
 			return true;
 		}
 	}
+
 	return false;
 }
 
 END_AS_NAMESPACE
+

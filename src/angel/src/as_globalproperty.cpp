@@ -28,6 +28,9 @@
    andreas@angelcode.com
 */
 
+
+
+
 #include "as_config.h"
 #include "as_property.h"
 #include "as_scriptengine.h"
@@ -46,10 +49,15 @@ asCGlobalProperty::asCGlobalProperty()
 }
 
 asCGlobalProperty::~asCGlobalProperty()
-{
+{ 
+#ifndef WIP_16BYTE_ALIGNED
 	if( memoryAllocated ) { asDELETEARRAY(memory); } 
+#else
+	if( memoryAllocated ) { asDELETEARRAYALIGNED(memory); } 
+#endif
 
-    if( initFunc ) initFunc->ReleaseInternal();
+	if( initFunc )
+		initFunc->ReleaseInternal();
 }
 
 void asCGlobalProperty::AddRef()
@@ -84,8 +92,13 @@ void *asCGlobalProperty::GetAddressOfValue()
 void asCGlobalProperty::AllocateMemory() 
 { 
 	if( type.GetSizeOnStackDWords() > 2 ) 
-    {
+	{ 
+#ifndef WIP_16BYTE_ALIGNED
 		memory = asNEWARRAY(asDWORD, type.GetSizeOnStackDWords()); 
+#else
+		// TODO: Avoid aligned allocation if not needed to reduce the waste of memory for the alignment
+		memory = asNEWARRAYALIGNED(asDWORD, type.GetSizeOnStackDWords(), type.GetAlignment()); 
+#endif
 		memoryAllocated = true; 
 	} 
 }
@@ -94,10 +107,12 @@ void asCGlobalProperty::SetRegisteredAddress(void *p)
 { 
 	realAddress = p;
 	if( type.IsObject() && !type.IsReference() && !type.IsObjectHandle() )
-    {
-        memory = &realAddress; // The global property is a pointer to a pointer
+	{
+		// The global property is a pointer to a pointer 
+		memory = &realAddress;
 	} 
-    else memory = p;
+	else
+		memory = p; 
 }
 
 void *asCGlobalProperty::GetRegisteredAddress() const

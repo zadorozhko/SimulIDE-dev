@@ -28,8 +28,13 @@
    andreas@angelcode.com
 */
 
+
+//
+// as_outputbuffer.cpp
+//
 // This class appends strings to one large buffer that can later
 // be sent to the real output stream
+//
 
 #include "as_config.h"
 
@@ -48,15 +53,20 @@ asCOutputBuffer::~asCOutputBuffer()
 void asCOutputBuffer::Clear()
 {
 	for( asUINT n = 0; n < messages.GetLength(); n++ )
-        if( messages[n] )  asDELETE(messages[n],message_t);
-
+	{
+		if( messages[n] ) 
+		{
+			asDELETE(messages[n],message_t);
+		}
+	}
 	messages.SetLength(0);
 }
 
 void asCOutputBuffer::Callback(asSMessageInfo *msg)
 {
 	message_t *msgInfo = asNEW(message_t);
-    if( msgInfo == 0 ) return;
+	if( msgInfo == 0 )
+		return;
 
 	msgInfo->section = msg->section;
 	msgInfo->row = msg->row;
@@ -87,7 +97,8 @@ void asCOutputBuffer::SendToCallback(asCScriptEngine *engine, asSSystemFunctionI
 
 		if( func->callConv < ICC_THISCALL )
 			engine->CallGlobalFunction(&msg, obj, func, 0);
-        else engine->CallObjectMethod(obj, &msg, func, 0);
+		else
+			engine->CallObjectMethod(obj, &msg, func, 0);
 	}
 	Clear();
 }
@@ -95,3 +106,4 @@ void asCOutputBuffer::SendToCallback(asCScriptEngine *engine, asSSystemFunctionI
 END_AS_NAMESPACE
 
 #endif // AS_NO_COMPILER
+

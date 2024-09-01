@@ -1,1 +1,7 @@
+.gitignore
 resources/qm/*.*
+.idea/*
+build/*
+build_XX/*
+src/angel/lib/*
+src/angel/obj/*

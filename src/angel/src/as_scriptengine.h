@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2019 Andreas Jonsson
+   Copyright (c) 2003-2024 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -35,11 +35,13 @@
 // The implementation of the script engine interface
 //
 
+
+
 #ifndef AS_SCRIPTENGINE_H
 #define AS_SCRIPTENGINE_H
 
 #include "as_config.h"
-//#include "as_atomic.h"
+#include "as_atomic.h"
 #include "as_scriptfunction.h"
 #include "as_array.h"
 #include "as_datatype.h"
@@ -80,8 +82,8 @@ public:
 	virtual int WriteMessage(const char *section, int row, int col, asEMsgType type, const char *message);
 
 	// JIT Compiler
-	virtual int SetJITCompiler(asIJITCompiler *compiler);
-	virtual asIJITCompiler *GetJITCompiler() const;
+	virtual int                     SetJITCompiler(asIJITCompilerAbstract *compiler);
+	virtual asIJITCompilerAbstract *GetJITCompiler() const;
 
 	// Global functions
 	virtual int                RegisterGlobalFunction(const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv, void *auxiliary = 0);
@@ -97,12 +99,12 @@ public:
 	virtual int    GetGlobalPropertyIndexByDecl(const char *decl) const;
 
 	// Type registration
-	virtual int            RegisterObjectType(const char *obj, int byteSize, asDWORD flags);
+	virtual int            RegisterObjectType(const char *obj, int byteSize, asQWORD flags);
 	virtual int            RegisterObjectProperty(const char *obj, const char *declaration, int byteOffset, int compositeOffset = 0, bool isCompositeIndirect = false);
 	virtual int            RegisterObjectMethod(const char *obj, const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv, void *auxiliary = 0, int compositeOffset = 0, bool isCompositeIndirect = false);
 	virtual int            RegisterObjectBehaviour(const char *obj, asEBehaviours behaviour, const char *declaration, const asSFuncPtr &funcPointer, asDWORD callConv, void *auxiliary = 0, int compositeOffset = 0, bool isCompositeIndirect = false);
-    //virtual int            RegisterInterface(const char *name);
-    //virtual int            RegisterInterfaceMethod(const char *intf, const char *declaration);
+	virtual int            RegisterInterface(const char *name);
+	virtual int            RegisterInterfaceMethod(const char *intf, const char *declaration);
 	virtual asUINT         GetObjectTypeCount() const;
 	virtual asITypeInfo   *GetObjectTypeByIndex(asUINT index) const;
 
@@ -131,10 +133,13 @@ public:
 	virtual asUINT       GetTypedefCount() const;
 	virtual asITypeInfo *GetTypedefByIndex(asUINT index) const;
 
-    // Configuration groups
+	// Configuration groups
+	virtual int         BeginConfigGroup(const char *groupName);
+	virtual int         EndConfigGroup();
+	virtual int         RemoveConfigGroup(const char *groupName);
 	virtual asDWORD     SetDefaultAccessMask(asDWORD defaultMask);
-    //virtual int         SetDefaultNamespace(const char *nameSpace);
-    //virtual const char *GetDefaultNamespace() const;
+	virtual int         SetDefaultNamespace(const char *nameSpace);
+	virtual const char *GetDefaultNamespace() const;
 
 	// Script modules
 	virtual asIScriptModule *GetModule(const char *module, asEGMFlags flag);
@@ -143,6 +148,7 @@ public:
 	virtual asIScriptModule *GetModuleByIndex(asUINT index) const;
 
 	// Script functions
+	virtual int                GetLastFunctionId() const;
 	virtual asIScriptFunction *GetFunctionById(int funcId) const;
 
 	// Type identification
@@ -157,6 +163,7 @@ public:
 	virtual asIScriptContext      *CreateContext();
 	virtual void                  *CreateScriptObject(const asITypeInfo *type);
 	virtual void                  *CreateScriptObjectCopy(void *obj, const asITypeInfo *type);
+	virtual void                  *CreateUninitializedScriptObject(const asITypeInfo *type);
 	virtual asIScriptFunction     *CreateDelegate(asIScriptFunction *func, void *obj);
 	virtual int                    AssignScriptObject(void *dstObj, void *srcObj, const asITypeInfo *type);
 	virtual void                   ReleaseScriptObject(void *obj, const asITypeInfo *type);
@@ -184,9 +191,16 @@ public:
 
 	// User data
 	virtual void *SetUserData(void *data, asPWORD type);
-    virtual void *GetUserData(asPWORD type) const;
-    virtual void  SetTypeInfoUserDataCleanupCallback(asCLEANTYPEINFOFUNC_t callback, asPWORD type);
+	virtual void *GetUserData(asPWORD type) const;
+	virtual void  SetEngineUserDataCleanupCallback(asCLEANENGINEFUNC_t callback, asPWORD type);
+	virtual void  SetModuleUserDataCleanupCallback(asCLEANMODULEFUNC_t callback, asPWORD type);
+	virtual void  SetContextUserDataCleanupCallback(asCLEANCONTEXTFUNC_t callback, asPWORD type);
+	virtual void  SetFunctionUserDataCleanupCallback(asCLEANFUNCTIONFUNC_t callback, asPWORD type);
+	virtual void  SetTypeInfoUserDataCleanupCallback(asCLEANTYPEINFOFUNC_t callback, asPWORD type);
+	virtual void  SetScriptObjectUserDataCleanupCallback(asCLEANSCRIPTOBJECTFUNC_t callback, asPWORD type);
 
+	// Exception handling
+	virtual int SetTranslateAppExceptionCallback(asSFuncPtr callback, void *param, int callConv);
 
 //===========================================================
 // internal methods
@@ -233,9 +247,12 @@ public:
 
 	void DeleteDiscardedModules();
 
-    void RemoveTemplateInstanceType(asCObjectType *t);
+	void RemoveTemplateInstanceType(asCObjectType *t);
 
-    asCConfigGroup *FindConfigGroupForTypeInfo(const asCTypeInfo *type) const;
+	asCConfigGroup *FindConfigGroupForFunction(int funcId) const;
+	asCConfigGroup *FindConfigGroupForGlobalVar(int gvarId) const;
+	asCConfigGroup *FindConfigGroupForTypeInfo(const asCTypeInfo *type) const;
+	asCConfigGroup *FindConfigGroupForFuncDef(const asCFuncdefType *funcDef) const;
 
 	int  RequestBuild();
 	void BuildCompleted();
@@ -393,16 +410,16 @@ public:
 	asCArray<asCString *> scriptSectionNames;
 
 	// Type identifiers
-    mutable int                       typeIdSeqNbr;
-    mutable asCMap<int, asCTypeInfo*> mapTypeIdToTypeInfo;
+	mutable int                             typeIdSeqNbr;
+	mutable asCMap<int, asCTypeInfo*>       mapTypeIdToTypeInfo;
 
 	// Garbage collector
 	asCGarbageCollector gc;
 
-    // Dynamic groups
-    asCConfigGroup             defaultGroup;
-    asCArray<asCConfigGroup*>  configGroups;
-    asCConfigGroup            *currentGroup;
+	// Dynamic groups
+	asCConfigGroup             defaultGroup;
+	asCArray<asCConfigGroup*>  configGroups;
+	asCConfigGroup            *currentGroup;
 	asDWORD                    defaultAccessMask;
 	asSNameSpace              *defaultNamespace;
 
@@ -412,7 +429,7 @@ public:
 	void                       *msgCallbackObj;
 	struct preMessage_t
 	{
-		preMessage_t() { isSet = false; }
+		preMessage_t() { isSet = false; r = c = 0; }
 		bool      isSet;
 		asCString message;
 		asCString scriptname;
@@ -421,7 +438,7 @@ public:
 	} preMessage;
 
 	// JIt compilation
-	asIJITCompiler             *jitCompiler;
+	asIJITCompilerAbstract *jitCompiler;
 
 	// Namespaces
 	// These are shared between all entities and are
@@ -449,10 +466,14 @@ public:
 	struct SScriptObjClean { asPWORD type; asCLEANSCRIPTOBJECTFUNC_t cleanFunc; };
 	asCArray<SScriptObjClean> cleanScriptObjectFuncs;
 
+	// Synchronization for threads
+	DECLAREREADWRITELOCK(mutable engineRWLock)
+
 	// Engine properties
 	struct
 	{
-        bool   allowUnsafeReferences;
+		bool   allowUnsafeReferences;
+		bool   optimizeByteCode;
 		bool   copyScriptSections;
 		asUINT maximumContextStackSize;
 		asUINT initContextStackSize;
@@ -467,12 +488,14 @@ public:
 		int    stringEncoding;
 		int    propertyAccessorMode;
 		bool   expandDefaultArrayToTemplate;
-        bool   autoGarbageCollect;
-		bool   alwaysImplDefaultConstruct;
+		bool   autoGarbageCollect;
+		bool   disallowGlobalVars;
+		asUINT alwaysImplDefaultConstruct;
 		int    compilerWarnings;
 		bool   disallowValueAssignForRefType;
 		// TODO: 3.0.0: Remove the alterSyntaxNamedArgs
 		int    alterSyntaxNamedArgs;
+		bool   disableIntegerDivision;
 		bool   disallowEmptyListElements;
 		// TODO: 3.0.0: Remove the privatePropAsProtected
 		bool   privatePropAsProtected;
@@ -482,7 +505,20 @@ public:
 		asUINT genericCallMode;
 		asUINT initCallStackSize;
 		asUINT maxCallStackSize;
+		bool   ignoreDuplicateSharedIntf;
+		bool   noDebugOutput;
+		bool   disableScriptClassGC;
+		asUINT jitInterfaceVersion;
+		asUINT alwaysImplDefaultCopy;
+		asUINT alwaysImplDefaultCopyConstruct;
 	} ep;
+
+	// Callbacks
+#ifndef AS_NO_EXCEPTIONS
+	bool                       translateExceptionCallback;
+	asSSystemFunctionInterface translateExceptionCallbackFunc;
+	void *                     translateExceptionCallbackObj;
+#endif
 
 	// This flag is to allow a quicker shutdown when releasing the engine
 	bool shuttingDown;

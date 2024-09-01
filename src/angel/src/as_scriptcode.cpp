@@ -28,11 +28,14 @@
    andreas@angelcode.com
 */
 
+
 //
 // as_scriptcode.cpp
 //
 // A container class for the script code to be compiled
 //
+
+
 
 #include "as_config.h"
 #include "as_scriptcode.h"
@@ -67,13 +70,15 @@ int asCScriptCode::SetCode(const char *in_name, const char *in_code, size_t in_l
 	if( !sharedCode && code ) 
 		asDELETEARRAY(code);
 
-    if( in_length == 0 ) in_length = strlen(in_code);
+	if( in_length == 0 )
+		in_length = strlen(in_code);
 	if( in_makeCopy )
 	{
 		codeLength = in_length;
 		sharedCode = false;
 		code = asNEWARRAY(char, in_length);
-        if( code == 0 ) return asOUT_OF_MEMORY;
+		if( code == 0 )
+			return asOUT_OF_MEMORY;
 		memcpy(code, in_code, in_length);
 	}
 	else
@@ -124,7 +129,11 @@ void asCScriptCode::ConvertPosToRowCol(size_t pos, int *row, int *col)
 			max = i;
 			i = (max + min)/2;
 		}
-        else break; // We found the exact position
+		else
+		{
+			// We found the exact position
+			break;
+		}
 	}
 
 	if( row ) *row = i + 1 + lineOffset;

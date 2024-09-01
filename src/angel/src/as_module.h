@@ -41,7 +41,7 @@
 
 #include "as_config.h"
 #include "as_symboltable.h"
-//#include "as_atomic.h"
+#include "as_atomic.h"
 #include "as_string.h"
 #include "as_array.h"
 #include "as_datatype.h"
@@ -130,8 +130,6 @@ public:
 	virtual void       *GetAddressOfGlobalVar(asUINT index);
 	virtual int         RemoveGlobalVar(asUINT index);
 
-    int getGlobalVarData( asUINT index, const char **name, const char **type );
-
 	// Type identification
 	virtual asUINT         GetObjectTypeCount() const;
 	virtual asITypeInfo   *GetObjectTypeByIndex(asUINT index) const;
@@ -158,8 +156,8 @@ public:
 	virtual int         UnbindAllImportedFunctions();
 
 	// Bytecode Saving/Loading
-    /// virtual int SaveByteCode(asIBinaryStream *out, bool stripDebugInfo) const;
-    /// virtual int LoadByteCode(asIBinaryStream *in, bool *wasDebugInfoStripped);
+	virtual int SaveByteCode(asIBinaryStream *out, bool stripDebugInfo) const;
+	virtual int LoadByteCode(asIBinaryStream *in, bool *wasDebugInfoStripped);
 
 	// User data
 	virtual void *SetUserData(void *data, asPWORD type);

@@ -223,12 +223,20 @@ int ScriptCpu::compileScript()
     for( int i=0; i<n; ++i )
     {
         const char* name;
+        const char* nameSpace;
         const char* type;
-        if( module->getGlobalVarData( i, &name, &type ) != asERROR )
+        int typeId;
+        const asITypeInfo* typeInfo;
+        bool isConst;
+        if( module->GetGlobalVar( i, &name, &nameSpace, &typeId, &isConst ) != asINVALID_ARG )
         {
-            QStringList list = m_typeWords.value( QString( type ) ); //
-            m_memberWords.insert( QString( name ), list );
+            if(typeInfo = module->GetTypedefByIndex(typeId))
+            {
+                type = typeInfo->GetName();
+                QStringList list = m_typeWords.value( QString( type ) );
+                m_memberWords.insert( QString( name ), list );
             //qDebug() << name << type;
+            }
         }
     }
 
@@ -302,7 +310,7 @@ void ScriptCpu::voltChanged()
 {
     if( !m_voltChanged ) return;
 
-#ifdef __x86_64__
+#ifndef SIMULIDE_W32 // Defined in .pro file for win32
     m_status = m_vChangedCtx->executeJit0( m_voltChanged );
 #else
     m_status = callFunction0( m_voltChanged, m_vChangedCtx );
@@ -313,7 +321,7 @@ void ScriptCpu::voltChanged()
 void ScriptCpu::runEvent()
 {
     if( !m_runEvent ) return;
-#ifdef __x86_64__
+#ifndef SIMULIDE_W32 // Defined in .pro file for win32
     m_status = m_runEventCtx->executeJit0( m_runEvent );
 #else
     m_status = callFunction0( m_runEvent, m_runEventCtx );
@@ -333,7 +341,7 @@ void ScriptCpu::runStep()
 {
     if( !m_runStep ) return;
     m_mcu->cyclesDone = 1;
-#ifdef __x86_64__
+#ifndef SIMULIDE_W32 // Defined in .pro file for win32
     m_status = m_runStepCtx->executeJit0( m_runStep );
 #else
     m_status = callFunction0( m_runStep, m_runStepCtx );
@@ -345,7 +353,7 @@ void ScriptCpu::extClock( bool clkState )
 {
     if( m_extClockF )
     {
-#ifdef __x86_64__
+#ifndef SIMULIDE_W32 // Defined in .pro file for win32
         m_status = m_extClockCtx->executeJit0( m_extClockF );
 #else
         m_status = callFunction0( m_extClockF , m_extClockCtx );

@@ -28,13 +28,20 @@
    andreas@angelcode.com
 */
 
+
+//
+// as_callfunc_x86.cpp
+//
 // These functions handle the actual calling of system functions
 //
 // Added support for functor methods by Jordi Oliveras Rovira in April, 2014.
 //
 
+
+
 #include "as_config.h"
 
+#ifndef AS_MAX_PORTABILITY
 #ifdef AS_X86
 
 #include "as_callfunc.h"
@@ -339,10 +346,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -381,10 +388,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
-        "popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_def_cfa_register esp \n"
+		"popl %%ebp                \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -461,10 +468,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -504,10 +511,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -584,10 +591,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -627,10 +634,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -716,10 +723,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -763,10 +770,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -848,10 +855,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -892,10 +899,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -979,10 +986,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -1026,10 +1033,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -1101,10 +1108,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -1141,10 +1148,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -1232,10 +1239,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)    "\n"
 		"pushl %%ebx            \n"
@@ -1281,10 +1288,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -1379,10 +1386,10 @@ endcopy:
 		// and the epilogue below, the stack unwind works as it should.
 		// TODO: runtime optimize: The prologue/epilogue shouldn't be needed if the correct cfi directives are used below
 		"pushl %%ebp               \n"
-        //".cfi_adjust_cfa_offset 4  \n"
-        //".cfi_rel_offset ebp, 0    \n"
+		".cfi_adjust_cfa_offset 4  \n"
+		".cfi_rel_offset ebp, 0    \n"
 		"movl %%esp, %%ebp         \n"
-        //".cfi_def_cfa_register ebp \n"
+		".cfi_def_cfa_register ebp \n"
 #endif
 		_S(CLEAR_FPU_STACK)   "\n"
 		"pushl %%ebx           \n"
@@ -1441,10 +1448,10 @@ endcopy:
 #ifdef __OPTIMIZE__
 		// Epilogue
 		"movl %%ebp, %%esp         \n"
-        //".cfi_def_cfa_register esp \n"
+		".cfi_def_cfa_register esp \n"
 		"popl %%ebp                \n"
-        //".cfi_adjust_cfa_offset -4 \n"
-        //".cfi_restore ebp          \n"
+		".cfi_adjust_cfa_offset -4 \n"
+		".cfi_restore ebp          \n"
 #endif
 		// Copy EAX:EDX to retQW. As the stack pointer has been
 		// restored it is now safe to access the local variable
@@ -1500,3 +1507,8 @@ asQWORD GetReturnedDouble()
 END_AS_NAMESPACE
 
 #endif // AS_X86
+#endif // AS_MAX_PORTABILITY
+
+
+
+

@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2020 Andreas Jonsson
+   Copyright (c) 2003-2023 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied 
    warranty. In no event will the authors be held liable for any 
@@ -28,9 +28,14 @@
    andreas@angelcode.com
 */
 
+
+//
+// as_configgroup.cpp
 //
 // This class holds configuration groups for the engine
 //
+
+
 
 #include "as_config.h"
 #include "as_configgroup.h"
@@ -64,7 +69,8 @@ int asCConfigGroup::Release()
 asCTypeInfo *asCConfigGroup::FindType(const char *obj)
 {
 	for( asUINT n = 0; n < types.GetLength(); n++ )
-        if( types[n]->name == obj ) return types[n];
+		if( types[n]->name == obj )
+			return types[n];
 
 	return 0;
 }
@@ -75,9 +81,10 @@ void asCConfigGroup::RefConfigGroup(asCConfigGroup *group)
 
 	// Verify if the group is already referenced
 	for( asUINT n = 0; n < referencedConfigGroups.GetLength(); n++ )
-        if( referencedConfigGroups[n] == group ) return;
+		if( referencedConfigGroups[n] == group )
+			return;
 
-    referencedConfigGroups.PushLast( group );
+	referencedConfigGroups.PushLast(group);
 	group->AddRef();
 }
 
@@ -93,11 +100,47 @@ void asCConfigGroup::AddReferencesForType(asCScriptEngine *engine, asCTypeInfo *
 	if( type == 0 ) return;
 
 	// Keep reference to other groups
-    RefConfigGroup( engine->FindConfigGroupForTypeInfo(type) );
+	RefConfigGroup(engine->FindConfigGroupForTypeInfo(type));
 
 	// Keep track of which generated template instances the config group uses
-	if( type->flags & asOBJ_TEMPLATE && engine->generatedTemplateTypes.Exists(CastToObjectType(type)) && !generatedTemplateInstances.Exists(CastToObjectType(type)) )
+	if ((type->flags & asOBJ_TEMPLATE) && engine->generatedTemplateTypes.Exists(CastToObjectType(type)) && !generatedTemplateInstances.Exists(CastToObjectType(type)))
+	{
 		generatedTemplateInstances.PushLast(CastToObjectType(type));
+
+		// Enumerate through the members of the template instance and register other template instances also used.
+		// This is needed when a template instance refers to another template instance, and thus is created at the same time.
+		// Without adding the reference to the referred template instance, it may be deleted when the module deletes the top template instance.
+		asCObjectType* ot = CastToObjectType(type);
+		for (asUINT n = 0; n < ot->beh.constructors.GetLength(); n++)
+		{
+			asCScriptFunction* f = engine->scriptFunctions[ot->beh.constructors[n]];
+			if (!f) continue;
+
+			for (asUINT p = 0; p < f->parameterTypes.GetLength(); p++)
+			{
+				asCTypeInfo* ti = f->parameterTypes[p].GetTypeInfo();
+				if (ti && (ti->flags & asOBJ_TEMPLATE) && engine->generatedTemplateTypes.Exists(CastToObjectType(ti)) && !generatedTemplateInstances.Exists(CastToObjectType(ti)))
+					AddReferencesForType(engine, ti);
+			}
+		}
+
+		for (asUINT n = 0; n < ot->methods.GetLength(); n++)
+		{
+			asCScriptFunction* f = engine->scriptFunctions[ot->methods[n]];
+			if (!f) continue;
+
+			asCTypeInfo* ti = f->returnType.GetTypeInfo();
+			if (ti && (ti->flags & asOBJ_TEMPLATE) && engine->generatedTemplateTypes.Exists(CastToObjectType(ti)) && !generatedTemplateInstances.Exists(CastToObjectType(ti)))
+				AddReferencesForType(engine, ti);
+
+			for (asUINT p = 0; p < f->parameterTypes.GetLength(); p++)
+			{
+				ti = f->parameterTypes[p].GetTypeInfo();
+				if (ti && (ti->flags & asOBJ_TEMPLATE) && engine->generatedTemplateTypes.Exists(CastToObjectType(ti)) && !generatedTemplateInstances.Exists(CastToObjectType(ti)))
+					AddReferencesForType(engine, ti);
+			}
+		}
+	}
 }
 
 bool asCConfigGroup::HasLiveObjects()
@@ -122,6 +165,7 @@ void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine, bool notUsed)
 		if( index >= 0 )
 		{
 			globalProps[n]->Release();
+
 			engine->registeredGlobalProps.Erase(index);
 		}
 	}
@@ -141,7 +185,8 @@ void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine, bool notUsed)
 	for( n = 0; n < types.GetLength(); n++ )
 	{
 		asCObjectType *obj = CastToObjectType(types[n]);
-        if( obj ) obj->ReleaseAllFunctions();
+		if( obj )
+			obj->ReleaseAllFunctions();
 	}
 
 	// Remove object types (skip this if it is possible other groups are still using the types)
@@ -170,12 +215,14 @@ void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine, bool notUsed)
 					engine->registeredFuncDefs.RemoveValue(CastToFuncdefType(t));
 					engine->RemoveFuncdef(CastToFuncdefType(t));
 				}
-                else engine->registeredObjTypes.RemoveValue(CastToObjectType(t));
+				else
+					engine->registeredObjTypes.RemoveValue(CastToObjectType(t));
 
 				t->DestroyInternal();
 				t->ReleaseInternal();
 			}
-            else{
+			else
+			{
 				int idx = engine->templateInstanceTypes.IndexOf(CastToObjectType(t));
 				if( idx >= 0 )
 				{
@@ -188,6 +235,7 @@ void asCConfigGroup::RemoveConfiguration(asCScriptEngine *engine, bool notUsed)
 		}
 		types.SetLength(0);
 	}
+
 	// Release other config groups
 	for( n = 0; n < referencedConfigGroups.GetLength(); n++ )
 		referencedConfigGroups[n]->refCount--;

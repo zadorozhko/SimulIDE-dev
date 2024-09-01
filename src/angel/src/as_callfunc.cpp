@@ -1,6 +1,6 @@
 /*
    AngelCode Scripting Library
-   Copyright (c) 2003-2021 Andreas Jonsson
+   Copyright (c) 2003-2024 Andreas Jonsson
 
    This software is provided 'as-is', without any express or implied
    warranty. In no event will the authors be held liable for any
@@ -28,7 +28,14 @@
    andreas@angelcode.com
 */
 
+
+//
+// as_callfunc.cpp
+//
 // These functions handle the actual calling of system functions
+//
+
+
 
 #include "as_config.h"
 #include "as_callfunc.h"
@@ -64,13 +71,29 @@ int DetectCallingConvention(bool isMethod, const asSFuncPtr &ptr, int callConv, 
 	}
 
 	asDWORD base = callConv;
+	if (base == asCALL_CDECL_OBJFIRST || base == asCALL_CDECL_OBJLAST)
+	{
+		internal->callConv =
+			base == asCALL_CDECL_OBJFIRST ? ICC_CDECL_OBJFIRST : ICC_CDECL_OBJLAST;
+		if (!isMethod)
+		{
+			if (auxiliary == 0)
+				return asINVALID_ARG;
+			internal->auxiliary = auxiliary;
+		}
+		return 0;
+	}
+
 	if( !isMethod )
 	{
-        if     ( base == asCALL_CDECL )   internal->callConv = ICC_CDECL;
-        else if( base == asCALL_STDCALL ) internal->callConv = ICC_STDCALL;
+		if( base == asCALL_CDECL )
+			internal->callConv = ICC_CDECL;
+		else if( base == asCALL_STDCALL )
+			internal->callConv = ICC_STDCALL;
 		else if( base == asCALL_THISCALL_ASGLOBAL )
 		{
-            if(auxiliary == 0) return asINVALID_ARG;
+			if(auxiliary == 0)
+				return asINVALID_ARG;
 			internal->auxiliary = auxiliary;
 			internal->callConv  = ICC_THISCALL;
 
@@ -81,9 +104,12 @@ int DetectCallingConvention(bool isMethod, const asSFuncPtr &ptr, int callConv, 
 		else if (base == asCALL_GENERIC)
 		{
 			internal->callConv = ICC_GENERIC_FUNC;
-            internal->auxiliary = auxiliary; // The auxiliary object is optional for generic calling convention
+
+			// The auxiliary object is optional for generic calling convention
+			internal->auxiliary = auxiliary;
 		}
-        else return asNOT_SUPPORTED;
+		else
+			return asNOT_SUPPORTED;
 	}
 
 	if( isMethod )
@@ -104,7 +130,8 @@ int DetectCallingConvention(bool isMethod, const asSFuncPtr &ptr, int callConv, 
 #ifdef AS_NO_THISCALL_FUNCTOR_METHOD
 				return asNOT_SUPPORTED;
 #else
-                if(auxiliary == 0) return asINVALID_ARG;
+				if(auxiliary == 0)
+					return asINVALID_ARG;
 
 				internal->auxiliary = auxiliary;
 				if( base == asCALL_THISCALL_OBJFIRST )
@@ -137,16 +164,13 @@ int DetectCallingConvention(bool isMethod, const asSFuncPtr &ptr, int callConv, 
 		}
 		else
 #endif
-		if( base == asCALL_CDECL_OBJLAST )
-			internal->callConv = ICC_CDECL_OBJLAST;
-		else if( base == asCALL_CDECL_OBJFIRST )
-			internal->callConv = ICC_CDECL_OBJFIRST;
-		else if (base == asCALL_GENERIC)
+		if (base == asCALL_GENERIC)
 		{
 			internal->callConv = ICC_GENERIC_METHOD;
 			internal->auxiliary = auxiliary;
 		}
-        else return asNOT_SUPPORTED;
+		else
+			return asNOT_SUPPORTED;
 	}
 
 	return 0;
@@ -201,7 +225,9 @@ int PrepareSystemFunctionGeneric(asCScriptFunction *func, asSSystemFunctionInter
 						internal->cleanArgs.PushLast(clean);
 					}
 				}
-            }else{
+			}
+			else
+			{
 				asSSystemFunctionInterface::SClean clean;
 				clean.op  = 1; // call free
 				clean.ot  = CastToObjectType(dt.GetTypeInfo());
@@ -228,6 +254,15 @@ int PrepareSystemFunctionGeneric(asCScriptFunction *func, asSSystemFunctionInter
 // This function should prepare system functions so that it will be faster to call them
 int PrepareSystemFunction(asCScriptFunction *func, asSSystemFunctionInterface *internal, asCScriptEngine *engine)
 {
+#ifdef AS_MAX_PORTABILITY
+	UNUSED_VAR(func);
+	UNUSED_VAR(internal);
+	UNUSED_VAR(engine);
+
+	// This should never happen, as when AS_MAX_PORTABILITY is on, all functions
+	// are asCALL_GENERIC, which are prepared by PrepareSystemFunctionGeneric
+	asASSERT(false);
+#else
 	// References are always returned as primitive data
 	if( func->returnType.IsReference() || func->returnType.IsObjectHandle() )
 	{
@@ -238,7 +273,7 @@ int PrepareSystemFunction(asCScriptFunction *func, asSSystemFunctionInterface *i
 	// Registered types have special flags that determine how they are returned
 	else if( func->returnType.IsObject() )
 	{
-		asDWORD objType = func->returnType.GetTypeInfo()->flags;
+		asQWORD objType = func->returnType.GetTypeInfo()->flags;
 
 		// Only value types can be returned by value
 		asASSERT( objType & asOBJ_VALUE );
@@ -282,10 +317,28 @@ int PrepareSystemFunction(asCScriptFunction *func, asSSystemFunctionInterface *i
 				else
 				{
 					internal->hostReturnInMemory = false;
-					internal->hostReturnSize     = func->returnType.GetSizeInMemoryDWords();
+					internal->hostReturnSize = func->returnType.GetSizeInMemoryDWords();
 #ifdef SPLIT_OBJS_BY_MEMBER_TYPES
-					if( func->returnType.GetTypeInfo()->flags & asOBJ_APP_CLASS_ALLFLOATS )
+					if (func->returnType.GetTypeInfo()->flags & asOBJ_APP_CLASS_ALLFLOATS)
+					{
 						internal->hostReturnFloat = true;
+#ifdef AS_RISCV64
+						// TODO: There shouldn't be platform specific code in this file. Need to have a better way of controlling this
+						//       Perhaps by having a specific RETURN_MAX_FLOAT_REGS in as_config
+						// On RISC-V 64bit & Linux only structures with two float or doubles can be returned in fa0:fa1
+						if (!(func->returnType.GetTypeInfo()->flags & asOBJ_APP_CLASS_ALIGN8) && func->returnType.GetSizeInMemoryDWords() > 2)
+						{
+							// Since asOBJ_APP_ALIGN8 is not set we assume it is floats, and only 2 floats can be returned in registers
+							// In this case the object will not be split by members, and instead it will be returned in a0:a1
+							internal->hostReturnFloat = false;
+						}
+						// On RISC-V 64bit & Linux floats within unions are not returned in fa0:fa1
+						if (func->returnType.GetTypeInfo()->flags & asOBJ_APP_CLASS_UNION)
+						{
+							internal->hostReturnFloat = false;
+						}
+#endif
+					}
 #endif
 				}
 
@@ -496,9 +549,29 @@ int PrepareSystemFunction(asCScriptFunction *func, asSSystemFunctionInterface *i
 			offset += AS_PTR_SIZE;
 		else
 			offset += dt.GetSizeOnStackDWords();
-    }
+	}
+#endif // !defined(AS_MAX_PORTABILITY)
 	return 0;
 }
+
+#ifdef AS_MAX_PORTABILITY
+
+int CallSystemFunction(int id, asCContext *context)
+{
+	asCScriptEngine *engine = context->m_engine;
+	asCScriptFunction *func = engine->scriptFunctions[id];
+	asSSystemFunctionInterface *sysFunc = func->sysFuncIntf;
+	int callConv = sysFunc->callConv;
+	if( callConv == ICC_GENERIC_FUNC || callConv == ICC_GENERIC_METHOD )
+		return context->CallGeneric(func);
+
+	context->SetInternalException(TXT_INVALID_CALLING_CONVENTION);
+
+	return 0;
+}
+
+#else
+
 //
 // CallSystemFunctionNative
 //
@@ -603,9 +676,22 @@ int CallSystemFunction(int id, asCContext *context)
 			continueCheck = false;
 		}
 		
-        if( obj ) // Add the base offset for multiple inheritance
-        {
+		if( obj )
+		{
+			// For composition we need to add the offset and/or dereference the pointer
+			obj = (void*)((char*)obj + sysFunc->compositeOffset);
+			if (sysFunc->isCompositeIndirect) obj = *((void**)obj);
+
+			// Add the base offset for multiple inheritance
+#if (defined(__GNUC__) && (defined(AS_ARM64) || defined(AS_ARM) || defined(AS_MIPS))) || defined(AS_PSVITA)
+			// On GNUC + ARM the lsb of the offset is used to indicate a virtual function
+			// and the whole offset is thus shifted one bit left to keep the original
+			// offset resolution
+			// MIPS also work like ARM in this regard
+			obj = (void*)(asPWORD(obj) + (sysFunc->baseOffset>>1));
+#else
 			obj = (void*)(asPWORD(obj) + sysFunc->baseOffset);
+#endif		
 		}
 
 		if( continueCheck )
@@ -623,12 +709,26 @@ int CallSystemFunction(int id, asCContext *context)
 				return 0;
 			}
 
+			// For composition we need to add the offset and/or dereference the pointer
+			tempPtr = (void*)((char*)tempPtr + sysFunc->compositeOffset);
+			if (sysFunc->isCompositeIndirect) tempPtr = *((void**)tempPtr);
+
 			// Add the base offset for multiple inheritance
+#if (defined(__GNUC__) && (defined(AS_ARM64) || defined(AS_ARM) || defined(AS_MIPS))) || defined(AS_PSVITA)
+			// On GNUC + ARM the lsb of the offset is used to indicate a virtual function
+			// and the whole offset is thus shifted one bit left to keep the original
+			// offset resolution
+			// MIPS also work like ARM in this regard
+			tempPtr = (void*)(asPWORD(tempPtr) + (sysFunc->baseOffset>>1));
+#else
 			tempPtr = (void*)(asPWORD(tempPtr) + sysFunc->baseOffset);
+#endif
 
-            args += AS_PTR_SIZE; // Skip the object pointer
+			// Skip the object pointer
+			args += AS_PTR_SIZE;
 
-            if( continueCheckIndex ) secondObj = tempPtr;
+			if( continueCheckIndex )
+				secondObj = tempPtr;
 			else
 			{
 				asASSERT( obj == 0 );
@@ -653,13 +753,6 @@ int CallSystemFunction(int id, asCContext *context)
 	{
 		// Set the object type of the reference held in the register
 		context->m_regs.objectType = descr->returnType.GetTypeInfo();
-	}
-
-	// For composition we need to add the offset and/or dereference the pointer
-	if(obj)
-	{
-		obj = (void*) ((char*) obj + sysFunc->compositeOffset);
-		if(sysFunc->isCompositeIndirect) obj = *((void**)obj);
 	}
 
 	context->m_callingSystemFunction = descr;
@@ -690,60 +783,65 @@ int CallSystemFunction(int id, asCContext *context)
 	// Store the returned value in our stack
 	if( (descr->returnType.IsObject() || descr->returnType.IsFuncdef()) && !descr->returnType.IsReference() )
 	{
-		if( descr->returnType.IsObjectHandle() )
+		if (descr->returnType.IsObjectHandle())
 		{
 #if defined(AS_BIG_ENDIAN) && AS_PTR_SIZE == 1
 			// Since we're treating the system function as if it is returning a QWORD we are
 			// actually receiving the value in the high DWORD of retQW.
 			retQW >>= 32;
 #endif
+
 			context->m_regs.objectRegister = (void*)(asPWORD)retQW;
 
-			if( sysFunc->returnAutoHandle && context->m_regs.objectRegister )
+			if (sysFunc->returnAutoHandle && context->m_regs.objectRegister)
 			{
-				asASSERT( !(descr->returnType.GetTypeInfo()->flags & asOBJ_NOCOUNT) );
+				asASSERT(!(descr->returnType.GetTypeInfo()->flags & asOBJ_NOCOUNT));
 				engine->CallObjectMethod(context->m_regs.objectRegister, CastToObjectType(descr->returnType.GetTypeInfo())->beh.addref);
 			}
 		}
-		else
+		else if (retPointer)
 		{
-			asASSERT( retPointer );
-
-			if( !sysFunc->hostReturnInMemory )
+			if (!sysFunc->hostReturnInMemory)
 			{
 				// Copy the returned value to the pointer sent by the script engine
-				if( sysFunc->hostReturnSize == 1 )
+				if (sysFunc->hostReturnSize == 1)
 				{
 #if defined(AS_BIG_ENDIAN) && AS_PTR_SIZE == 1
 					// Since we're treating the system function as if it is returning a QWORD we are
 					// actually receiving the value in the high DWORD of retQW.
 					retQW >>= 32;
 #endif
+
 					*(asDWORD*)retPointer = (asDWORD)retQW;
 				}
-				else if( sysFunc->hostReturnSize == 2 )
+				else if (sysFunc->hostReturnSize == 2)
 					*(asQWORD*)retPointer = retQW;
-				else if( sysFunc->hostReturnSize == 3 )
+				else if (sysFunc->hostReturnSize == 3)
 				{
-					*(asQWORD*)retPointer         = retQW;
+					*(asQWORD*)retPointer = retQW;
 					*(((asDWORD*)retPointer) + 2) = (asDWORD)retQW2;
 				}
 				else // if( sysFunc->hostReturnSize == 4 )
 				{
-					*(asQWORD*)retPointer         = retQW;
+					*(asQWORD*)retPointer = retQW;
 					*(((asQWORD*)retPointer) + 1) = retQW2;
 				}
 			}
 
-			if( context->m_status == asEXECUTION_EXCEPTION && !cppException )
+			if (context->m_status == asEXECUTION_EXCEPTION && !cppException)
 			{
 				// If the function raised a script exception it really shouldn't have
 				// initialized the object. However, as it is a soft exception there is
 				// no way for the application to not return a value, so instead we simply
 				// destroy it here, to pretend it was never created.
-				if(CastToObjectType(descr->returnType.GetTypeInfo())->beh.destruct )
+				if (CastToObjectType(descr->returnType.GetTypeInfo())->beh.destruct)
 					engine->CallObjectMethod(retPointer, CastToObjectType(descr->returnType.GetTypeInfo())->beh.destruct);
 			}
+		}
+		else
+		{
+			// Ths should not be possible
+			asASSERT(false);
 		}
 	}
 	else
@@ -830,17 +928,24 @@ int CallSystemFunction(int id, asCContext *context)
 					engine->CallObjectMethod(*addr, clean->ot->beh.release);
 					*addr = 0;
 				}
-            }else{
+			}
+			else
+			{
 				asASSERT( clean->op == 1 || clean->op == 2 );
 				asASSERT( *addr );
 
-                if( clean->op == 2 ) engine->CallObjectMethod(*addr, clean->ot->beh.destruct);
+				if( clean->op == 2 )
+					engine->CallObjectMethod(*addr, clean->ot->beh.destruct);
 
 				engine->CallFree(*addr);
 			}
 		}
 	}
+
 	return popSize;
 }
 
+#endif // AS_MAX_PORTABILITY
+
 END_AS_NAMESPACE
+

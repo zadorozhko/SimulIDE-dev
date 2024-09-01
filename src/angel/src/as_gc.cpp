@@ -28,11 +28,13 @@
    andreas@angelcode.com
 */
 
+
 //
 // as_gc.cpp
 //
 // The implementation of the garbage collector
 //
+
 
 #include <stdlib.h>
 
@@ -89,32 +91,44 @@ int asCGarbageCollector::AddScriptObjectToGC(void *obj, asCObjectType *objType)
 	// halting the application, and without burdening the application with manually invoking the 
 	// garbage collector.
 	if( engine->ep.autoGarbageCollect && gcNewObjects.GetLength() )
-    {
-        if( !isProcessing ) // Skip this if the GC is already running in this thread
-        {
-            isProcessing = true;
+	{
+		// If the GC is already processing in another thread, then don't try this again
+		if( TRYENTERCRITICALSECTION(gcCollecting) )
+		{
+			// Skip this if the GC is already running in this thread
+			if( !isProcessing )
+			{
+				isProcessing = true;
 
-            // TODO: The number of iterations should be dynamic, and increase
-            //       if the number of objects in the garbage collector grows high
+				// TODO: The number of iterations should be dynamic, and increase 
+				//       if the number of objects in the garbage collector grows high
 
-            // Run one step of DetectGarbage
-            if( gcOldObjects.GetLength() )
-            {
-                IdentifyGarbageWithCyclicRefs();
-                DestroyOldGarbage();
-            }
-            // Run a few steps of DestroyGarbage
-            int iter = (int)gcNewObjects.GetLength();
-            if( iter > 10 ) iter = 10;
-            while( iter-- > 0 ) DestroyNewGarbage();
+				// Run one step of DetectGarbage
+				if( gcOldObjects.GetLength() )
+				{
+					IdentifyGarbageWithCyclicRefs();
+					DestroyOldGarbage();
+				}
 
-            isProcessing = false;
-        }
+				// Run a few steps of DestroyGarbage
+				int iter = (int)gcNewObjects.GetLength();
+				if( iter > 10 ) iter = 10;
+				while( iter-- > 0 )
+					DestroyNewGarbage();
+
+				isProcessing = false;
+			}
+
+			LEAVECRITICALSECTION(gcCollecting);
+		}
 	}
+
 	// Add the data to the gcObjects array in a critical section as
 	// another thread might be calling this method at the same time
+	ENTERCRITICALSECTION(gcCritical);
 	ot.seqNbr = numAdded++;
-    gcNewObjects.PushLast(ot);
+	gcNewObjects.PushLast(ot);
+	LEAVECRITICALSECTION(gcCritical);
 
 	return ot.seqNbr;
 }
@@ -125,17 +139,22 @@ int asCGarbageCollector::GetObjectInGC(asUINT idx, asUINT *seqNbr, void **obj, a
 	if( obj )    *obj    = 0;
 	if( type )   *type   = 0;
 
+	ENTERCRITICALSECTION(gcCritical);
 	asSObjTypePair *o = 0;
 	asUINT newObjs = asUINT(gcNewObjects.GetLength());
 	if( idx < newObjs )
 		o = &gcNewObjects[idx];
 	else if( idx < gcOldObjects.GetLength() + newObjs )
 		o = &gcOldObjects[idx-newObjs];
-    else return asINVALID_ARG;
-
+	else
+	{
+		LEAVECRITICALSECTION(gcCritical);
+		return asINVALID_ARG;
+	}
 	if( seqNbr ) *seqNbr = o->seqNbr;
 	if( obj )    *obj    = o->obj;
 	if( type )   *type   = o->type;
+	LEAVECRITICALSECTION(gcCritical);
 
 	return asSUCCESS;
 }
@@ -149,67 +168,88 @@ int asCGarbageCollector::GetObjectInGC(asUINT idx, asUINT *seqNbr, void **obj, a
 //       These variables should also be available for inspection through the gcstatistics.
 int asCGarbageCollector::GarbageCollect(asDWORD flags, asUINT iterations)
 {
-    // If the GC is already processing in this thread, then don't enter here again
-    if( isProcessing ) return 1;
+	// If the GC is already processing in another thread, then don't enter here again
+	if( TRYENTERCRITICALSECTION(gcCollecting) )
+	{
+		// If the GC is already processing in this thread, then don't enter here again
+		if( isProcessing ) 
+		{	
+			LEAVECRITICALSECTION(gcCollecting);
+			return 1;
+		}
 
-    isProcessing = true;
+		isProcessing = true;
 
-    bool doDetect  = (flags & asGC_DETECT_GARBAGE)  || !(flags & asGC_DESTROY_GARBAGE);
-    bool doDestroy = (flags & asGC_DESTROY_GARBAGE) || !(flags & asGC_DETECT_GARBAGE);
+		bool doDetect  = (flags & asGC_DETECT_GARBAGE)  || !(flags & asGC_DESTROY_GARBAGE);
+		bool doDestroy = (flags & asGC_DESTROY_GARBAGE) || !(flags & asGC_DETECT_GARBAGE);
 
-    if( flags & asGC_FULL_CYCLE )
-    {
-        // Reset the state
-        if( doDetect )
-        {
-            // Move all new objects to the old list, so we guarantee that all is detected
-            MoveAllObjectsToOldList();
-            detectState  = clearCounters_init;
-        }
-        if( doDestroy )
-        {
-            destroyNewState = destroyGarbage_init;
-            destroyOldState = destroyGarbage_init;
-        }
-        // The full cycle only works with the objects in the old list so that the
-        // set of objects scanned for garbage is fixed even if new objects are added
-        // by other threads in parallel.
-        unsigned int count = (unsigned int)(gcOldObjects.GetLength());
-        for(;;)
-        {
-            // Detect all garbage with cyclic references
-            if( doDetect ) while( IdentifyGarbageWithCyclicRefs() == 1 ) {}
+		if( flags & asGC_FULL_CYCLE )
+		{
+			// Reset the state
+			if( doDetect )
+			{
+				// Move all new objects to the old list, so we guarantee that all is detected
+				MoveAllObjectsToOldList();
+				detectState  = clearCounters_init;
+			}
+			if( doDestroy )
+			{
+				destroyNewState = destroyGarbage_init;
+				destroyOldState = destroyGarbage_init;
+			}
 
-            if( doDestroy ) // Now destroy all known garbage
-            {
-                if( !doDetect )
-                    while( DestroyNewGarbage() == 1 ) {}
-                while( DestroyOldGarbage() == 1 ) {}
-            }
-            // Run another iteration if any garbage was destroyed
-            if( count != (unsigned int)(gcOldObjects.GetLength()) )
-                count = (unsigned int)(gcOldObjects.GetLength());
-            else break;
-        }
-        isProcessing = false;
-        return 0;
-    }
-    else{
-        while( iterations-- > 0 )
-        {
-            if( doDestroy ) // Destroy the garbage that we know of
-            {
-                DestroyNewGarbage();
-                DestroyOldGarbage();
-            }
-            // Run another incremental step of the identification of cyclic references
-            if( doDetect && gcOldObjects.GetLength() > 0 )
-                IdentifyGarbageWithCyclicRefs();
-        }
-    }
-    isProcessing = false;
+			// The full cycle only works with the objects in the old list so that the
+			// set of objects scanned for garbage is fixed even if new objects are added
+			// by other threads in parallel.
+			unsigned int count = (unsigned int)(gcOldObjects.GetLength());
+			for(;;)
+			{
+				// Detect all garbage with cyclic references
+				if( doDetect )
+					while( IdentifyGarbageWithCyclicRefs() == 1 ) {}
 
-    return 1; // Return 1 to indicate that the cycle wasn't finished
+				// Now destroy all known garbage
+				if( doDestroy )
+				{
+					if( !doDetect )
+						while( DestroyNewGarbage() == 1 ) {}
+					while( DestroyOldGarbage() == 1 ) {}
+				}
+
+				// Run another iteration if any garbage was destroyed
+				if( count != (unsigned int)(gcOldObjects.GetLength()) )
+					count = (unsigned int)(gcOldObjects.GetLength());
+				else
+					break;
+			}
+
+			isProcessing = false;
+			LEAVECRITICALSECTION(gcCollecting);
+			return 0;
+		}
+		else
+		{
+			while( iterations-- > 0 )
+			{
+				// Destroy the garbage that we know of
+				if( doDestroy )
+				{
+					DestroyNewGarbage();
+					DestroyOldGarbage();
+				}
+
+				// Run another incremental step of the identification of cyclic references
+				if( doDetect && gcOldObjects.GetLength() > 0 )
+					IdentifyGarbageWithCyclicRefs();
+			}
+		}
+
+		isProcessing = false;
+		LEAVECRITICALSECTION(gcCollecting);
+	}
+	
+	// Return 1 to indicate that the cycle wasn't finished
+	return 1;
 }
 
 // TODO: Additional statistics to gather
@@ -233,18 +273,30 @@ void asCGarbageCollector::GetStatistics(asUINT *currentSize, asUINT *totalDestro
 	// moments and might not match perfectly when inspected by the application
 	// afterwards.
 
-    if( currentSize )       *currentSize = (asUINT)(gcNewObjects.GetLength() + gcOldObjects.GetLength());
-    if( totalDestroyed )    *totalDestroyed = numDestroyed;
-    if( totalDetected )     *totalDetected = numDetected;
-    if( newObjects )        *newObjects = (asUINT)gcNewObjects.GetLength();
-    if( totalNewDestroyed ) *totalNewDestroyed = numNewDestroyed;
+	if( currentSize )
+		*currentSize = (asUINT)(gcNewObjects.GetLength() + gcOldObjects.GetLength());
+
+	if( totalDestroyed )
+		*totalDestroyed = numDestroyed;
+
+	if( totalDetected )
+		*totalDetected = numDetected;
+
+	if( newObjects )
+		*newObjects = (asUINT)gcNewObjects.GetLength();
+
+	if( totalNewDestroyed )
+		*totalNewDestroyed = numNewDestroyed;
 }
 
 asCGarbageCollector::asSObjTypePair asCGarbageCollector::GetNewObjectAtIdx(int idx)
 {
 	// We need to protect this access with a critical section as
 	// another thread might be appending an object at the same time
+	ENTERCRITICALSECTION(gcCritical);
 	asSObjTypePair gcObj = gcNewObjects[idx];
+	LEAVECRITICALSECTION(gcCritical);
+
 	return gcObj;
 }
 
@@ -252,7 +304,10 @@ asCGarbageCollector::asSObjTypePair asCGarbageCollector::GetOldObjectAtIdx(int i
 {
 	// We need to protect this access with a critical section as
 	// another thread might be appending an object at the same time
+	ENTERCRITICALSECTION(gcCritical);
 	asSObjTypePair gcObj = gcOldObjects[idx];
+	LEAVECRITICALSECTION(gcCritical);
+
 	return gcObj;
 }
 
@@ -260,37 +315,47 @@ void asCGarbageCollector::RemoveNewObjectAtIdx(int idx)
 {
 	// We need to protect this update with a critical section as
 	// another thread might be appending an object at the same time
+	ENTERCRITICALSECTION(gcCritical);
 	if( idx == (int)gcNewObjects.GetLength() - 1)
 		gcNewObjects.PopLast();
-    else gcNewObjects[idx] = gcNewObjects.PopLast();
+	else
+		gcNewObjects[idx] = gcNewObjects.PopLast();
+	LEAVECRITICALSECTION(gcCritical);
 }
 
 void asCGarbageCollector::RemoveOldObjectAtIdx(int idx)
 {
 	// We need to protect this update with a critical section as
 	// another thread might be appending an object at the same time
+	ENTERCRITICALSECTION(gcCritical);
 	if( idx == (int)gcOldObjects.GetLength() - 1)
 		gcOldObjects.PopLast();
-    else gcOldObjects[idx] = gcOldObjects.PopLast();
+	else
+		gcOldObjects[idx] = gcOldObjects.PopLast();
+	LEAVECRITICALSECTION(gcCritical);
 }
 
 void asCGarbageCollector::MoveObjectToOldList(int idx)
 {
 	// We need to protect this update with a critical section as
 	// another thread might be appending an object at the same time
-
+	ENTERCRITICALSECTION(gcCritical);
 	gcOldObjects.PushLast(gcNewObjects[idx]);
 	if( idx == (int)gcNewObjects.GetLength() - 1)
 		gcNewObjects.PopLast();
-    else gcNewObjects[idx] = gcNewObjects.PopLast();
+	else
+		gcNewObjects[idx] = gcNewObjects.PopLast();
+	LEAVECRITICALSECTION(gcCritical);
 }
 
 void asCGarbageCollector::MoveAllObjectsToOldList()
 {
 	// We need to protect this update with a critical section as
 	// another thread might be appending an object at the same time
+	ENTERCRITICALSECTION(gcCritical);
 	if( gcOldObjects.Concatenate(gcNewObjects) )
 		gcNewObjects.SetLength(0);
+	LEAVECRITICALSECTION(gcCritical);
 }
 
 int asCGarbageCollector::DestroyNewGarbage()
@@ -305,7 +370,8 @@ int asCGarbageCollector::DestroyNewGarbage()
 		case destroyGarbage_init:
 		{
 			// If there are no objects to be freed then don't start
-            if( gcNewObjects.GetLength() == 0 ) return 0;
+			if( gcNewObjects.GetLength() == 0 )
+				return 0;
 
 			// Update the seqAtSweepStart which is used to determine when 
 			// to move an object from the new set to the old set
@@ -344,7 +410,8 @@ int asCGarbageCollector::DestroyNewGarbage()
 						int refCount = ((asCScriptObject*)gcObj.obj)->Release();
 						if( refCount > 0 ) addRef = true;
 					}
-                    else engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.release);
+					else
+						engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.release);
 
 					// Was the object really destroyed?
 					if( !addRef )
@@ -354,11 +421,13 @@ int asCGarbageCollector::DestroyNewGarbage()
 						RemoveNewObjectAtIdx(destroyNewIdx);
 						destroyNewIdx--;
 					}
-                    else{
+					else
+					{
 						// Since the object was resurrected in the
 						// destructor, we must add our reference again
 						engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.addref);
 					}
+
 					destroyNewState = destroyGarbage_haveMore;
 				}
 				// Check if this object has been inspected 3 times already, and if so move it to the 
@@ -371,16 +440,19 @@ int asCGarbageCollector::DestroyNewGarbage()
 					MoveObjectToOldList(destroyNewIdx);
 					destroyNewIdx--;
 				}
+
 				// Allow the application to work a little
 				return 1;
 			}
-            else{
+			else
+			{
 				if( destroyNewState == destroyGarbage_haveMore )
 				{
 					// Restart the cycle
 					destroyNewState = destroyGarbage_init;
 				}
-                else{
+				else
+				{
 					// Restart the cycle
 					destroyNewState = destroyGarbage_init;
 
@@ -393,6 +465,7 @@ int asCGarbageCollector::DestroyNewGarbage()
 		break;
 		}
 	}
+
 	// Shouldn't reach this point
 	UNREACHABLE_RETURN;
 }
@@ -428,6 +501,7 @@ int asCGarbageCollector::ReportAndReleaseUndestroyedObjects()
 			msg.Format(TXT_PREV_TYPE_IS_NAMED_s, reinterpret_cast<asCObjectType*>(gcObj.obj)->GetName());
 			engine->WriteMessage("", 0, 0, asMSGTYPE_INFORMATION, msg.AddressOf());
 		}
+
 		// Release the reference that the GC holds if the release functions is still available
 		if( gcObj.type->beh.release && engine->scriptFunctions[gcObj.type->beh.release] )
 			engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.release);
@@ -449,7 +523,8 @@ int asCGarbageCollector::DestroyOldGarbage()
 		case destroyGarbage_init:
 		{
 			// If there are no objects to be freed then don't start
-            if( gcOldObjects.GetLength() == 0 ) return 0;
+			if( gcOldObjects.GetLength() == 0 )
+				return 0;
 
 			destroyOldIdx = (asUINT)-1;
 			destroyOldState = destroyGarbage_loop;
@@ -499,7 +574,8 @@ int asCGarbageCollector::DestroyOldGarbage()
 						int refCount = ((asCScriptObject*)gcObj.obj)->Release();
 						if( refCount > 0 ) addRef = true;
 					}
-                    else engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.release);
+					else
+						engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.release);
 
 					// Was the object really destroyed?
 					if( !addRef )
@@ -508,23 +584,28 @@ int asCGarbageCollector::DestroyOldGarbage()
 						RemoveOldObjectAtIdx(destroyOldIdx);
 						destroyOldIdx--;
 					}
-                    else{
+					else
+					{
 						// Since the object was resurrected in the
 						// destructor, we must add our reference again
 						engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.addref);
 					}
+
 					destroyOldState = destroyGarbage_haveMore;
 				}
+
 				// Allow the application to work a little
 				return 1;
 			}
-            else{
+			else
+			{
 				if( destroyOldState == destroyGarbage_haveMore )
 				{
 					// Restart the cycle
 					destroyOldState = destroyGarbage_init;
 				}
-                else{
+				else
+				{
 					// Restart the cycle
 					destroyOldState = destroyGarbage_init;
 
@@ -537,6 +618,7 @@ int asCGarbageCollector::DestroyOldGarbage()
 		break;
 		}
 	}
+
 	// Shouldn't reach this point
 	UNREACHABLE_RETURN;
 }
@@ -570,6 +652,7 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 
 				return 1;
 			}
+
 			detectState = buildMap_init;
 		}
 		break;
@@ -614,11 +697,14 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 					// see if it has changed since read
 					engine->CallObjectMethod(gcObj.obj, gcObj.type->beh.gcSetFlag);
 				}
+
 				detectIdx++; 
+
 				// Let the application work a little
 				return 1;
 			}
-            else detectState = countReferences_init;
+			else
+				detectState = countReferences_init;
 		}
 		break;
 
@@ -652,10 +738,12 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 				{
 					engine->CallObjectMethod(obj, engine, type->beh.gcEnumReferences);
 				}
+
 				// Allow the application to work a little
 				return 1;
 			}
-            else detectState = detectGarbage_init;
+			else
+				detectState = detectGarbage_init;
 		}
 		break;
 
@@ -690,10 +778,12 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 				{
 					liveObjects.PushLast(obj);
 				}
+
 				// Allow the application to work a little
 				return 1;
 			}
-            else detectState = detectGarbage_loop2;
+			else
+				detectState = detectGarbage_loop2;
 		}
 		break;
 
@@ -721,10 +811,12 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 					// Enumerate all the object's references so that they too can be marked as alive
 					engine->CallObjectMethod(gcObj, engine, type->beh.gcEnumReferences);
 				}
+
 				// Allow the application to work a little
 				return 1;
 			}
-            else detectState = verifyUnmarked_init;
+			else
+				detectState = verifyUnmarked_init;
 		}
 		break;
 
@@ -749,12 +841,14 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 					// The unmarked object was touched, rerun the detectGarbage loop
 					detectState = detectGarbage_init;
 				}
-                else gcMap.MoveNext(&gcMapCursor, gcMapCursor);
+				else
+					gcMap.MoveNext(&gcMapCursor, gcMapCursor);
 
 				// Allow the application to work a little
 				return 1;
 			}
-            else{
+			else
+			{
 				// No unmarked object was touched, we can now be sure
 				// that objects that have gcCount == 0 really is garbage
 				detectState = breakCircles_init;
@@ -781,6 +875,7 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 
 					gcMap.MoveNext(&gcMapCursor, gcMapCursor);
 				}
+
 				// Reset iterator
 				gcMap.MoveFirst(&gcMapCursor);
 			}
@@ -825,7 +920,8 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 					detectState = clearCounters_init;
 					return 0;
 				}
-                else{
+				else
+				{
 					// Restart the GC
 					detectState = clearCounters_init;
 					return 1;
@@ -834,6 +930,7 @@ int asCGarbageCollector::IdentifyGarbageWithCyclicRefs()
 		}
 		} // switch
 	}
+
 	// Shouldn't reach this point
 	UNREACHABLE_RETURN;
 }
@@ -844,12 +941,18 @@ asCGarbageCollector::asSMapNode_t *asCGarbageCollector::GetNode(void *obj, asSIn
 	asASSERT(isProcessing);
 
 	asSMapNode_t *node;
-    if( freeNodes.GetLength() ) node = freeNodes.PopLast();
+	if( freeNodes.GetLength() )
+		node = freeNodes.PopLast();
 	else
 	{
 		node = asNEW(asSMapNode_t);
-        if( !node ) return 0; // Out of memory
-    }
+		if( !node )
+		{
+			// Out of memory
+			return 0;
+		}
+	}
+	
 	node->Init(obj, it);
 	return node;
 }
@@ -859,7 +962,8 @@ void asCGarbageCollector::ReturnNode(asSMapNode_t *node)
 	// This function will only be called within the critical section gcCollecting
 	asASSERT(isProcessing);
 
-    if( node ) freeNodes.PushLast(node);
+	if( node )
+		freeNodes.PushLast(node);
 }
 
 void asCGarbageCollector::GCEnumCallback(void *reference)

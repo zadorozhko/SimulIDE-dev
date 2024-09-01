@@ -36,7 +36,9 @@
 // Compile with GCC/GAS
 
 #if !defined(AS_MAX_PORTABILITY)
-
+// ** This file should be skipped when compiling with clang. 
+// ** There is as_callfunc_arm64_xcode.S with native implementation
+#ifndef __clang__ 
 #if defined(__aarch64__)
 
 .arch armv8-a
@@ -225,5 +227,7 @@ CallARM64RetInMemory:
     .cfi_endproc
 
 #endif /* __aarch64__ */
+
+#endif /* __GNUC__ */
 
 #endif /* !AS_MAX_PORTABILITY */

@@ -48,12 +48,15 @@ int asCompareStrings(const char *str1, size_t len1, const char *str2, size_t len
 	if( len1 == 0 ) 
 	{
 		if( str2 == 0 || len2 == 0 ) return 0; // Equal
+
 		return 1; // The other string is larger than this
 	}
 
 	if( str2 == 0 )
 	{
-        if( len1 == 0 )  return 0; // Equal
+		if( len1 == 0 ) 
+			return 0; // Equal
+
 		return -1; // The other string is smaller than this
 	}
 
@@ -61,11 +64,13 @@ int asCompareStrings(const char *str1, size_t len1, const char *str2, size_t len
 	{
 		int result = memcmp(str1, str2, len2);
 		if( result == 0 ) return -1; // The other string is smaller than this
+
 		return result;
 	}
 
 	int result = memcmp(str1, str2, len1);
 	if( result == 0 && len1 < len2 ) return 1; // The other string is larger than this
+
 	return result;
 }
 
@@ -94,7 +99,9 @@ double asStringScanDouble(const char *string, size_t *numScanned)
 	{
 		if( string[c] >= '0' && string[c] <= '9' )
 			value = value*10 + double(string[c] - '0');
-        else break;
+		else 
+			break;
+
 		c++;
 	}
 
@@ -107,7 +114,9 @@ double asStringScanDouble(const char *string, size_t *numScanned)
 		{
 			if( string[c] >= '0' && string[c] <= '9' )
 				value += fraction * double(string[c] - '0');
-            else break;
+			else
+				break;
+
 			c++;
 			fraction *= 0.1;
 		}
@@ -131,18 +140,22 @@ double asStringScanDouble(const char *string, size_t *numScanned)
 		{
 			if( string[c] >= '0' && string[c] <= '9' )
 				exponent = exponent*10 + int(string[c] - '0');
-            else break;
+			else
+				break;
+
 			c++;
 		}
 	}
 
 	if( exponent )
 	{
-        if( negativeExponent ) exponent = -exponent;
+		if( negativeExponent )
+			exponent = -exponent;
 		value *= pow(10.0, exponent);
 	}
 
-    if( numScanned ) *numScanned = c;
+	if( numScanned )
+		*numScanned = c;
 
 	return value;
 }
@@ -162,7 +175,8 @@ asQWORD asStringScanUInt64(const char *string, int base, size_t *numScanned, boo
 {
 	asASSERT(base == 10 || base == 16 || base == 0);
 
-    if (overflow) *overflow = false;
+	if (overflow)
+		*overflow = false;
 
 	const char *end = string;
 
@@ -208,7 +222,8 @@ asQWORD asStringScanUInt64(const char *string, int base, size_t *numScanned, boo
 		}
 	}
 
-    if( numScanned ) *numScanned = end - string;
+	if( numScanned )
+		*numScanned = end - string;
 
 	return res;
 }
@@ -255,6 +270,7 @@ int asStringEncodeUTF8(unsigned int value, char *outEncodedBuffer)
 		buf[n] = static_cast<unsigned char>(0x80 + (value & 0x3F));
 		value >>= 6;
 	}
+
 	return length;
 }
 
@@ -307,7 +323,8 @@ int asStringDecodeUTF8(const char *encodedBuffer, unsigned int *outLength)
 		byte = buf[n];
 		if( (byte & 0xC0) == 0x80 )
 			value = (value << 6) + int(byte & 0x3F);
-        else break;
+		else 
+			break;
 	}
 
 	if( n == length )
@@ -315,6 +332,7 @@ int asStringDecodeUTF8(const char *encodedBuffer, unsigned int *outLength)
 		if( outLength ) *outLength = (unsigned)length;
 		return value;
 	}
+
 	// The byte sequence isn't a valid UTF-8 byte sequence.
 	return -1;
 }
@@ -356,8 +374,10 @@ int asStringEncodeUTF16(unsigned int value, char *outEncodedBuffer)
 		outEncodedBuffer[3] = (surrogate2 & 0xFF);
 		outEncodedBuffer[2] = ((surrogate2 >> 8) & 0xFF);
 #endif
+
 		return 4;
 	}
 }
+
 
 END_AS_NAMESPACE
