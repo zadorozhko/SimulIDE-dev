@@ -482,7 +482,7 @@ void Simulator::addToUpdateList( Updatable* el )
 { if( !m_updateList.contains(el) ) m_updateList.append(el); }
 
 void Simulator::remFromUpdateList( Updatable* el )
-{ m_updateList.removeOne(el); }
+{ if( el && m_updateList.contains(el) ) m_updateList.removeOne(el); }
 
 void Simulator::addToSocketList( Socket* el )
 { if( !m_socketList.contains(el) ) m_socketList.append(el); }
