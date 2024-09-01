@@ -71,7 +71,7 @@ class Compiler : public QObject, public CompBase
 
         int runBuildStep( QString fullCommand );
         QString replaceData( QString str );
-        void toolChainNotFound();
+        void toolChainNotFound( QString message );
 
         CodeEditor* m_editor;
 

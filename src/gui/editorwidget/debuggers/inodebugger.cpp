@@ -180,13 +180,16 @@ void InoDebugger::setToolPath( QString path )
 
         m_outPane->appendLine( "Found Arduino Version 1" );
     }
-    else{
+    else {
         builder = "arduino-cli";
         #ifndef Q_OS_UNIX
         builder += ".exe";
         #endif
-
-        builder = findFile( path+"resources/app/", builder );
+        #ifndef __APPLE__
+            builder = findFile( path+"resources/app/", builder );
+        #else
+            builder = findFile( path + "/" , builder ); // Look for /opt/homebrew/bin/arduino-cli
+        #endif
 
         if( QFile::exists( builder) )
         {
@@ -210,6 +213,7 @@ void InoDebugger::setToolPath( QString path )
                 QDir toolDir( m_toolPath );
                 QStringList dirList = toolDir.entryList( QDir::Dirs, QDir::Name | QDir::Reversed );
                 if( !dirList.isEmpty() ) m_toolPath += dirList[0]+"/bin/";
+                m_outPane->appendLine("Toolchain: " + dirList[0]);
                 break;
             }
 
@@ -245,8 +249,8 @@ void InoDebugger::setToolPath( QString path )
             m_outPane->appendLine( "Found Arduino Version 2" );
         }
         else{                                          // Executable not found
-            m_outPane->appendText( "\nArduino" );
-            toolChainNotFound();
+            m_outPane->appendText( "\nArduino " );
+            toolChainNotFound("Builder not found:" + builder);
             return;
         }
     }
@@ -275,7 +279,7 @@ bool InoDebugger::upload() // Copy hex file to Circuit folder, then upload
 
 int InoDebugger::compile( bool debug )
 {
-    if( m_version == 0 ) { toolChainNotFound(); return -1; }
+    if( m_version == 0 ) { toolChainNotFound("Toolchain version is not recognized"); return -1; }
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
     m_fileList.clear();

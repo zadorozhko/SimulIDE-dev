@@ -195,7 +195,7 @@ int Compiler::compile( bool debug )
         if( !checkCommand( command ) )
         {
             m_outPane->appendLine( "ERROR: "+command );
-            toolChainNotFound();
+            toolChainNotFound(command);
             error = -1;
             break;
         }
@@ -318,8 +318,9 @@ void Compiler::setIncludePath( QString path )
     MainWindow::self()->settings()->setValue( m_compName+"_inclPath", m_inclPath );
 }
 
-void Compiler::toolChainNotFound()
+void Compiler::toolChainNotFound(QString message)
 {
+    m_outPane->appendLine( "Msg:" + message + "\n" );
     m_outPane->appendLine( "     : "+tr("Executable not found") );
     m_outPane->appendLine( "     : "+tr("Check that Tool Path is correct")+"\n" );
 }
