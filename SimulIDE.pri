@@ -13,10 +13,13 @@ QT += serialport
 QT += multimedia widgets
 
 SOURCES      = $$files( $$PWD/src/*.cpp, true )
+SOURCES     += $$files( $$PWD/src/angel/src/*.S, true )
 HEADERS      = $$files( $$PWD/src/*.h, true )
 TRANSLATIONS = $$files( $$PWD/resources/translations/*.ts )
 FORMS       += $$files( $$PWD/src/*.ui, true )
 RESOURCES    = $$PWD/src/application.qrc
+RESOURCES   += $$PWD/src/qdarkstyle/light/lightstyle.qrc
+RESOURCES   += $$PWD/src/qdarkstyle/dark/darkstyle.qrc
 
 INCLUDEPATH += $$PWD/src \
     $$PWD/src/components \
@@ -110,6 +113,7 @@ CONFIG += qt
 CONFIG += warn_on
 CONFIG += no_qml_debug
 CONFIG *= c++11
+CONFIG += sdk_no_version_check
 
 REV_NO = $$system($(which date) +\"\\\"%m%d\\\"\")
 #$$system( git rev-parse --short HEAD )
@@ -138,9 +142,9 @@ win32 | linux {
 }
 
 macx {
-QMAKE_CC   = /usr/local/Cellar/gcc@7/7.5.0_4/bin/gcc-7
-QMAKE_CXX  = /usr/local/Cellar/gcc@7/7.5.0_4/bin/g++-7
-QMAKE_LINK = /usr/local/Cellar/gcc@7/7.5.0_4/bin/g++-7
+QMAKE_CC   = gcc
+QMAKE_CXX  = g++
+QMAKE_LINK = g++
 
     QMAKE_CXXFLAGS -= -stdlib=libc++
     QMAKE_LFLAGS   -= -stdlib=libc++
