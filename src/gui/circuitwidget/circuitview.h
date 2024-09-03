@@ -27,6 +27,7 @@ class CircuitView : public QGraphicsView
         void setShowScroll( bool show );
 
         void wheelEvent( QWheelEvent* event );
+        bool viewportEvent ( QEvent * event );
         void dragMoveEvent( QDragMoveEvent* event );
         void dragEnterEvent( QDragEnterEvent* event );
         void dragLeaveEvent( QDragLeaveEvent* event );

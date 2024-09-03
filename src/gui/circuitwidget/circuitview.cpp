@@ -86,10 +86,32 @@ void CircuitView::setShowScroll( bool show )
 
 void CircuitView::wheelEvent( QWheelEvent* event )
 {
-    QPoint delta = event->angleDelta();
-    qreal scaleFactor = pow( 2.0, delta.y()/700.0 );
-    scale( scaleFactor, scaleFactor );
-    m_scale *= scaleFactor;
+    if(event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier)){ // Win Zoom
+        qreal scaleFactor = pow( 2.0, event->delta() / 700.0);
+        scale( scaleFactor, scaleFactor );
+        m_scale *= scaleFactor;
+    } else {
+        QGraphicsView::wheelEvent(event);
+    }
+}
+
+// On MacOs we have to listen to a QEvent::NativeGesture - thats not called on Windows:
+bool CircuitView::viewportEvent ( QEvent * event )
+{
+    switch (event->type()){
+    case QEvent::NativeGesture:
+        auto nge = dynamic_cast<QNativeGestureEvent*>(event);
+        if (nge){
+            if(nge->gestureType() == Qt::ZoomNativeGesture){ // Mac Zoom
+                qreal scaleFactor = pow( 2.0, nge->value()); //Zoom gesture provides a scale factor
+                printf("%lf\n",scaleFactor);
+                scale( scaleFactor, scaleFactor );
+                m_scale *= scaleFactor;
+                return true; // event has been handled
+            }
+        }
+    }
+    return QGraphicsView::viewportEvent(event);
 }
 
 void CircuitView::dragEnterEvent( QDragEnterEvent* event )
