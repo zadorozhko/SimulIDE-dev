@@ -7,11 +7,11 @@
 #define SCRIPTBASE_H
 
 #ifdef __APPLE__
-#define SIMULIDE_W32 
+//#define SIMULIDE_W32 
 #endif
 
 #include "angelscript.h"
-//#include "as_jit.h"
+#include "as_jit.h"
 
 #include "mcumodule.h"
 #include "e-element.h"
@@ -48,8 +48,8 @@ class ScriptBase : public eElement
 
         QString m_script;
 
-        //asCJITCompiler* m_jit;
-        void * m_jit;
+        asCJITCompiler* m_jit;
+        //void * m_jit;
         asIScriptEngine* m_aEngine;
         asIScriptContext* m_context;
 

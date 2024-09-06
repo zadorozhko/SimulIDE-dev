@@ -311,18 +311,28 @@ void ScriptCpu::voltChanged()
     if( !m_voltChanged ) return;
 
 #ifndef SIMULIDE_W32 // Defined in .pro file for win32
-    m_status = m_vChangedCtx->executeJit0( m_voltChanged );
+    //m_status = m_vChangedCtx->executeJit0( m_voltChanged );
+    if(0 == ( m_status = m_vChangedCtx->Prepare(m_voltChanged) )) {
+        m_status = m_vChangedCtx->Execute();
+    } else {
+        printError( m_vChangedCtx );
+    }
 #else
     m_status = callFunction0( m_voltChanged, m_vChangedCtx );
 #endif
-    if( m_status != asEXECUTION_FINISHED ) printError( m_vChangedCtx );
+    if( asEXECUTION_FINISHED != m_status) printError( m_vChangedCtx );
 }
 
 void ScriptCpu::runEvent()
 {
     if( !m_runEvent ) return;
 #ifndef SIMULIDE_W32 // Defined in .pro file for win32
-    m_status = m_runEventCtx->executeJit0( m_runEvent );
+    //m_status = m_runEventCtx->executeJit0( m_runEvent ); // executeJit0 is not a method of asIScriptContext
+    if(0 == ( m_status = m_runEventCtx->Prepare(m_runEvent) )) {
+        m_status = m_runEventCtx->Execute();
+    } else {
+        printError( m_runEventCtx );
+    }
 #else
     m_status = callFunction0( m_runEvent, m_runEventCtx );
 #endif
@@ -342,7 +352,12 @@ void ScriptCpu::runStep()
     if( !m_runStep ) return;
     m_mcu->cyclesDone = 1;
 #ifndef SIMULIDE_W32 // Defined in .pro file for win32
-    m_status = m_runStepCtx->executeJit0( m_runStep );
+    //m_status = m_runStepCtx->executeJit0( m_runStep ); // executeJit0 is not a method of asIScriptContext
+    if(0 == ( m_status = m_runStepCtx->Prepare(m_runStep) )) {
+        m_status = m_runStepCtx->Execute();
+    } else {
+        printError( m_runStepCtx );
+    }
 #else
     m_status = callFunction0( m_runStep, m_runStepCtx );
 #endif
@@ -354,7 +369,12 @@ void ScriptCpu::extClock( bool clkState )
     if( m_extClockF )
     {
 #ifndef SIMULIDE_W32 // Defined in .pro file for win32
-        m_status = m_extClockCtx->executeJit0( m_extClockF );
+        //m_status = m_extClockCtx->executeJit0( m_extClockF );
+        if(0 == ( m_status = m_extClockCtx->Prepare(m_extClockF) )) {
+            m_status = m_extClockCtx->Execute();
+        } else {
+            printError( m_extClockCtx );
+        }
 #else
         m_status = callFunction0( m_extClockF , m_extClockCtx );
 #endif
