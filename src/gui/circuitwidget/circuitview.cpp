@@ -104,7 +104,6 @@ bool CircuitView::viewportEvent ( QEvent * event )
         if (nge){
             if(nge->gestureType() == Qt::ZoomNativeGesture){ // Mac Zoom
                 qreal scaleFactor = pow( 2.0, nge->value()); //Zoom gesture provides a scale factor
-                printf("%lf\n",scaleFactor);
                 scale( scaleFactor, scaleFactor );
                 m_scale *= scaleFactor;
                 return true; // event has been handled

@@ -81,7 +81,7 @@ MainWindow::MainWindow()
     df.setFamily( fontName );
     qApp->setFont( df );
     setFont( df );
-    //------ Dark Theme -------
+    /* //------ Dark Theme -------
     QFile f(":/qdarkstyle/dark/darkstyle.qss");
     if (!f.exists()) {
         printf("Unable to set stylesheet, file not found\n");
@@ -90,7 +90,7 @@ MainWindow::MainWindow()
         QTextStream ts(&f);
         qApp->setStyleSheet(ts.readAll());
     }
-    //----------------------------------------------
+    //---------------------------------------------- */
 
     QApplication::setStyle( QStyleFactory::create("Fusion") ); //applyStyle();
     createWidgets();

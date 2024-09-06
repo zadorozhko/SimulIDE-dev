@@ -1,5 +1,21 @@
 <!DOCTYPE SimulIDE>
 
-<compiler name="Arduino" type="arduino">
-
+<compiler name="Arduino" type="arduino" buildPath="build_$fileName" >
+    <step
+        command="cp"
+        arguments=" $buildPath$fileName $buildPath$fileName.cpp"
+    />
+    <step 
+        command="avr-g++"
+        arguments=" -c -g -Os -w -std=gnu++11 -fpermissive -fno-exceptions -ffunction-sections -fdata-sections -fno-threadsafe-statics -Wno-error=narrowing -flto -w -x c++ -E -CC -mmcu=$device -DF_CPU=16000000L -DARDUINO=10607 -DARDUINO_AVR_UNO -DARDUINO_ARCH_AVR -I$inclPath/cores/arduino -I$inclPath/variants/standard $buildPath$fileName.cpp -o $buildPath$fileName.elf"
+        argsDebug=" -c -g -Og -Wall -w -std=gnu++11 -fpermissive -fno-exceptions -ffunction-sections -fdata-sections -fno-threadsafe-statics -Wno-error=narrowing -flto -w -x c++ -E -CC -mmcu=$device -DF_CPU=16000000L -DARDUINO=10607 -DARDUINO_AVR_UNO -DARDUINO_ARCH_AVR -I$inclPath/cores/arduino -I$inclPath/variants/standard $buildPath$fileName.cpp -o $buildPath$fileName.elf"
+    />
+    <step
+        command="rm"
+        arguments=" $buildPath$fileName.cpp"
+    />
+    <step 
+        command="avr-objcopy"
+        arguments=" -j .text -j .data -O ihex $buildPath$fileName.elf $buildPath$fileName.hex"
+    />
 </compiler>
