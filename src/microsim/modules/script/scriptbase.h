@@ -49,7 +49,6 @@ class ScriptBase : public eElement
         QString m_script;
 
         asCJITCompiler* m_jit;
-        //void * m_jit;
         asIScriptEngine* m_aEngine;
         asIScriptContext* m_context;
 

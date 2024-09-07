@@ -52,13 +52,22 @@ enum RegCode : byte {
     XMM14 = 30,
     XMM15 = 31,
 
+    X0 = 0;
+    X1 = 1;
+    X2 = 2;
+    X3 = 3;
+    X4 = 4;
+    X5 = 5;
+    X6 = 6;
+    X7 = 7;
+
     NONE = 0,
 };
 
 //Floating Point Register codes representing the stack registers on the FPU
 // The top of the stack is always FPU_0
 enum FloatReg : byte {
-    FPU_0 = 0,
+    FPU_0 = 0, //x86_64 FP registers
     FPU_1 = 1,
     FPU_2 = 2,
     FPU_3 = 3,
@@ -66,6 +75,15 @@ enum FloatReg : byte {
     FPU_5 = 5,
     FPU_6 = 6,
     FPU_7 = 7,
+
+    D0 = 0; //Silicon FP64 registers
+    D1 = 1;
+    D2 = 2;
+    D3 = 3;
+    D4 = 4;
+    D5 = 5;
+    D6 = 6;
+    D7 = 7;
 };
 
 enum JumpType {

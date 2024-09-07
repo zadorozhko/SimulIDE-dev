@@ -1,5 +1,6 @@
 .gitignore
 .idea
+.vscode
 resources/qm/*.*
 build_XX/**
 build/**
