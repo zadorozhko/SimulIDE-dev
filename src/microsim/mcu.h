@@ -6,8 +6,6 @@
 #ifndef MCU_H
 #define MCU_H
 
-//#include <QHash>
-
 #include "e_mcu.h"
 #include "chip.h"
 #include "linker.h"
@@ -51,11 +49,11 @@ class Mcu : public Chip, public Linker
         bool savePGM() { return m_savePGM; }
         void setSavePGM( bool s ) { m_savePGM = s; }
 
-        double extFreq() { return m_extFreq; }
-        void setExtFreq( double freq ) { m_extFreq = freq; setFreq( freq ); }
+        double uiFreq() { return m_uiFreq; }
+        void setUiFreq( double freq );
 
-        double freq() { return m_eMcu.m_freq; }
-        void setFreq( double freq ) { m_eMcu.setFreq( freq ); }
+        bool forceFreq() { return m_forceFreq; }
+        void setForceFreq( bool f );
 
         bool rstPinEnabled();
         void enableRstPin( bool en );
@@ -113,7 +111,6 @@ class Mcu : public Chip, public Linker
 
         virtual void paint( QPainter* p, const QStyleOptionGraphicsItem* o, QWidget* w ) override;
 
-    //public slots:
         void slotmain();
         void slotLoad();
         void slotReload();
@@ -131,7 +128,6 @@ class Mcu : public Chip, public Linker
         void setPGM( QString pgm );
 
         virtual void contextMenu( QGraphicsSceneContextMenuEvent* e, QMenu* m ) override;
-        //virtual void contextMenuEvent(QGraphicsSceneContextMenuEvent* e) override;
 
         QString findIdLabel();
 
@@ -142,8 +138,9 @@ class Mcu : public Chip, public Linker
         bool m_savePGM;
         bool m_scripted;
         bool m_resetPol;
+        bool m_forceFreq;
 
-        double m_extFreq;
+        double m_uiFreq;
 
         int m_serialMon;
 
@@ -161,5 +158,4 @@ class Mcu : public Chip, public Linker
 
         ScriptCpu* m_scriptLink;
 };
-
 #endif

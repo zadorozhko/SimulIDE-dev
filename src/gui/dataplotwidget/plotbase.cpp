@@ -10,6 +10,7 @@
 #include "circuitwidget.h"
 #include "propdialog.h"
 #include "iopin.h"
+#include "batchtest.h"
 #include "utils.h"
 
 #include "stringprop.h"
@@ -29,7 +30,7 @@ PlotBase::PlotBase( QString type, QString id )
     m_connectGnd = true;
     m_inputAdmit = 1e-7;
 
-    //m_doTest = false;
+    m_doTest = false;
     m_testTime = 0;
 
     m_color[0] = QColor( 240, 240, 100 );
@@ -41,19 +42,18 @@ PlotBase::PlotBase( QString type, QString id )
     m_baSizeX = 135;
     m_baSizeY = 135;
 
-    //int r;
     m_pauseFunc = NULL;
     m_aEngine->RegisterObjectType("PlotBase",0, asOBJ_REF | asOBJ_NOCOUNT );
     m_aEngine->RegisterGlobalProperty("PlotBase pb", this );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "bool m_pause", asOFFSET(PlotBase,m_pause)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch1", asOFFSET(PlotBase,m_condCh1)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch2", asOFFSET(PlotBase,m_condCh2)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch3", asOFFSET(PlotBase,m_condCh3)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch4", asOFFSET(PlotBase,m_condCh4)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch5", asOFFSET(PlotBase,m_condCh5)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch6", asOFFSET(PlotBase,m_condCh6)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch7", asOFFSET(PlotBase,m_condCh7)); //assert( r >= 0 );
-    /*r = */m_aEngine->RegisterObjectProperty("PlotBase", "int ch8", asOFFSET(PlotBase,m_condCh8)); //assert( r >= 0 );
+    m_aEngine->RegisterObjectProperty("PlotBase", "bool m_pause", asOFFSET(PlotBase,m_pause));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch1", asOFFSET(PlotBase,m_condCh1));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch2", asOFFSET(PlotBase,m_condCh2));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch3", asOFFSET(PlotBase,m_condCh3));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch4", asOFFSET(PlotBase,m_condCh4));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch5", asOFFSET(PlotBase,m_condCh5));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch6", asOFFSET(PlotBase,m_condCh6));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch7", asOFFSET(PlotBase,m_condCh7));
+    m_aEngine->RegisterObjectProperty("PlotBase", "int ch8", asOFFSET(PlotBase,m_condCh8));
 
     QString n;
     for( int i=1; i<9; ++i ) // Condition simple to script: ch1l to (ch1==1)
@@ -88,8 +88,11 @@ PlotBase::PlotBase( QString type, QString id )
     }, groupNoCopy} );
 
     addPropGroup( { tr("Test"), {
-        new IntProp <PlotBase>("TestTime",tr("Test Time"),""
-                              , this, &PlotBase::testTime, &PlotBase::setTestTime,0,"uint" ),
+        new DoubProp<PlotBase>("TestTime",tr("Test Time"),"ns"
+                              , this, &PlotBase::testTime, &PlotBase::setTestTime,0  ),
+
+        new BoolProp<PlotBase>("DoTest",tr("Do Test"),""
+                              , this, &PlotBase::doTest, &PlotBase::setDoTest,0 ),
     }, 0 } );
 
     addPropGroup( {"Hidden", {
@@ -132,18 +135,26 @@ bool PlotBase::setPropStr( QString prop, QString val )
 void PlotBase::initialize()
 {
     if( m_testTime )
-        Simulator::self()->addEvent( m_testTime*1000, this );
+    {
+        Simulator::self()->addEvent( m_testTime*1e12, this );
+        if( BatchTest::isRunning() ) BatchTest::addTestUnit( this );
+    }
 }
 
 void PlotBase::runEvent() // Test time reached, make comparison
 {
+    bool testOk = true;
     for( int i=0; i<m_numChannels; ++i )
     {
-        if( !m_channel[i]->doTest() )
+        if( !m_channel[i]->doTest( m_doTest ) )
         {
-            qDebug() << "PlotBase::runEvent Error: Test failed for Channel" << i;
+            testOk = false;
+            qDebug() << idLabel() << "Error: Test failed for Channel" << i;
         }
     }
+    if( m_doTest && testOk ) qDebug() << idLabel() << "Test passed" ;
+
+    if( m_doTest && BatchTest::isRunning() ) BatchTest::testCompleted( this, testOk );
 }
 
 QString PlotBase::testData()
@@ -287,19 +298,6 @@ void PlotBase::conditonMet( int ch, cond_t cond )
         CircuitWidget::self()->pauseCirc();
         if( m_autoExport ) QTimer::singleShot( 50, [=](){ dump(); } );
     }
-
-    //if( m_trigger != 8 ) return;
-
-    /*if( m_conditions == m_condTarget ) // All conditions met
-    {                                  // Trigger Pause Simulation
-        m_risEdge = Simulator::self()->circTime();
-        CircuitWidget::self()->pauseSim();
-    }*/
-    /*else  // Rising will be High and Falling Low in next cycles
-    {
-        if     ( cond == C_RISING )  m_conditions[ch] = C_HIGH;
-        else if( cond == C_FALLING ) m_conditions[ch] = C_LOW;
-    }*/
 }
 
 void PlotBase::slotProperties()

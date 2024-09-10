@@ -51,7 +51,7 @@ enum RegCode : byte {
     XMM13 = 29,
     XMM14 = 30,
     XMM15 = 31,
-
+    // Aarch64 int registers
     X0 = 0;
     X1 = 1;
     X2 = 2;
@@ -75,8 +75,8 @@ enum FloatReg : byte {
     FPU_5 = 5,
     FPU_6 = 6,
     FPU_7 = 7,
-
-    D0 = 0; //Silicon FP64 registers
+//aarch64 FP registers
+    D0 = 0; 
     D1 = 1;
     D2 = 2;
     D3 = 3;

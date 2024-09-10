@@ -46,7 +46,7 @@ eMcu::eMcu( Mcu* comp, QString id )
     m_firmware = "";
     m_debugger = NULL;
     m_debugging = false;
-    m_saveEepr = true;
+    m_saveEepr = false;
 
     m_ramTable = new RamTable( NULL, this, false );
 }
@@ -194,11 +194,15 @@ void eMcu::sleep( bool s )
     for( McuModule* module : m_modules ) module->sleep( mode );
 }
 
-void eMcu::setFreq( double freq, bool force )
+void eMcu::setFreq( double freq )
 {
-    double extFreq = force ? freq : m_component->extFreq(); // Mcu freq Property
-    freq = extFreq ? extFreq : freq;         // Use property if Mcu freq Property is set
+    if( m_component->forceFreq() ) return;
 
+    forceFreq( freq );
+}
+
+void eMcu::forceFreq( double freq )
+{
     if     ( freq < 0       ) freq = 0;
     else if( freq > 100*1e6 ) freq = 100*1e6;
 

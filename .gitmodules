@@ -1,0 +1,2 @@
+[submodule "src/angel/JIT/asarmjit"]
+	url = https://github.com/quarnster/asarmjit.git
