@@ -41,10 +41,10 @@ void McuOcUnit::clockStep( uint16_t count )
 void McuOcUnit::runEvent()  // Compare match
 {
     m_interrupt->raise();   // Trigger interrupt
-    if( m_enabled ) drivePin( m_comAct );
+    if( m_enabled ) drivePin( m_comAct, m_timer->psPerTick() );
 }
 
-void McuOcUnit::drivePin( ocAct_t act )
+void McuOcUnit::drivePin( ocAct_t act, uint64_t time )
 {
     if( !act ) return;
     bool pinState = false;
@@ -53,12 +53,12 @@ void McuOcUnit::drivePin( ocAct_t act )
     else if( act == ocCLR ) pinState = !m_pinSet;
     else if( act == ocSET ) pinState =  m_pinSet;
 
-    setPinSate( pinState );
+    setPinSate( pinState, time );
 }
 
-void McuOcUnit::setPinSate( bool state )
+void McuOcUnit::setPinSate( bool state, uint64_t time )
 {
-    m_ocPin->setOutState( state );
+    m_ocPin->scheduleState( state, time );
 }
 
 void McuOcUnit::sheduleEvents( uint32_t ovf, uint32_t countVal, int rot )
@@ -85,8 +85,7 @@ void McuOcUnit::sheduleEvents( uint32_t ovf, uint32_t countVal, int rot )
             uint64_t psPerTick  = m_timer->psPerTick();
             uint64_t timeOffset = m_timer->timeOffset();
 
-            /// Fixme: /*run it 1 cycle after match*/
-            uint64_t time2ovf = (match-countVal)*psPerTick;// + m_mcu->psInst(); // Time in ps
+            uint64_t time2ovf = (match-countVal)*psPerTick; // Time in ps
             if( timeOffset ) time2ovf -= psPerTick-timeOffset;
 
             Simulator::self()->addEvent( time2ovf, this );
